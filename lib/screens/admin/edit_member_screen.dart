@@ -14,148 +14,199 @@ class EditMemberScreen extends StatefulWidget {
 }
 
 class _EditMemberScreenState extends State<EditMemberScreen> {
-  late TextEditingController _namaController;
-  late TextEditingController _npmController;
-  late TextEditingController _prodiController;
-  late TextEditingController _tglController;
-
-  String? _currentPhoto;
-  List<double>? _faceEmbedding;
-  bool _isFaceUpdated = false;
+  late Map<String, dynamic> _currentMember;
 
   @override
   void initState() {
     super.initState();
-    _namaController = TextEditingController(text: widget.member['nama'] ?? '');
-    _npmController = TextEditingController(text: widget.member['npm'] ?? '');
-    _prodiController = TextEditingController(text: widget.member['prodi'] ?? 'Marketing');
-    _tglController = TextEditingController(text: widget.member['tanggal_lahir'] ?? '6 Juli 1967');
-
-    _currentPhoto = widget.member['foto']?.toString() ?? '';
-    if (widget.member['face_embedding'] != null) {
-      _faceEmbedding = List<double>.from(widget.member['face_embedding']);
-    }
+    _currentMember = Map<String, dynamic>.from(widget.member);
   }
 
-  @override
-  void dispose() {
-    _namaController.dispose();
-    _npmController.dispose();
-    _prodiController.dispose();
-    _tglController.dispose();
-    super.dispose();
-  }
-
-  // Buka kamera untuk update wajah & biometrik
-  Future<void> _openFaceScannerForEdit() async {
-    final result = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(builder: (context) => const FaceEnrollmentScreen()),
-    );
-
-    if (result != null && mounted) {
-      setState(() {
-        _currentPhoto = result['photoPath'];
-        _faceEmbedding = result['embedding'];
-        _isFaceUpdated = true;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Wajah baru berhasil dipindai! Tekan "Simpan Perubahan" untuk menyimpan.'),
-          backgroundColor: Color(0xFF145E53),
-        ),
+  void _showEnlargedPhoto(String photo) {
+    if (photo.isEmpty) {
+      AppNotification.show(
+        context,
+        'Anggota ini belum memiliki foto biometrik terdaftar.',
+        backgroundColor: const Color(0xFFC02227),
       );
+      return;
     }
-  }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+    showDialog(
       context: context,
-      initialDate: DateTime(2004, 1, 1),
-      firstDate: DateTime(1960),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF145E53),
-              onPrimary: Colors.white,
-              onSurface: Colors.black87,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  color: Colors.black87,
+                  child: InteractiveViewer(
+                    maxScale: 4.0,
+                    child: kIsWeb || photo.startsWith('http')
+                        ? Image.network(photo, fit: BoxFit.contain)
+                        : Image.file(File(photo), fit: BoxFit.contain),
+                  ),
+                ),
+              ),
             ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      final months = [
-        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-      ];
-      setState(() {
-        _tglController.text = '${picked.day} ${months[picked.month - 1]} ${picked.year}';
-      });
-    }
-  }
-
-  Future<void> _saveChanges() async {
-    final id = widget.member['id'];
-    await DatabaseService.updateMember(id, {
-      'nama': _namaController.text.trim(),
-      'npm': _npmController.text.trim(),
-      'prodi': _prodiController.text.trim(),
-      'tanggal_lahir': _tglController.text.trim(),
-      'foto': _currentPhoto ?? '',
-      'face_embedding': _faceEmbedding,
-      'biometrik_terdaftar': _faceEmbedding != null || (_currentPhoto != null && _currentPhoto!.isNotEmpty),
-    });
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Perubahan data anggota berhasil disimpan!'),
-        backgroundColor: Color(0xFF145E53),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: CircleAvatar(
+                backgroundColor: Colors.black54,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 22),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
-    Navigator.pop(context);
+  }
+
+  void _openEditDialog() {
+    final namaCtrl = TextEditingController(text: _currentMember['nama']);
+    final npmCtrl = TextEditingController(text: _currentMember['npm']);
+    final prodiCtrl = TextEditingController(text: _currentMember['prodi']);
+    final tglCtrl = TextEditingController(text: _currentMember['tanggal_lahir']);
+    String editPhoto = _currentMember['foto']?.toString() ?? '';
+    List<double>? editEmbedding = _currentMember['face_embedding'] != null
+        ? List<double>.from(_currentMember['face_embedding'])
+        : null;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text('Edit Data Anggota', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Center(
+                    child: Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundColor: const Color(0xFFDCE8F5),
+                          backgroundImage: editPhoto.isNotEmpty
+                              ? (editPhoto.startsWith('http')
+                                  ? NetworkImage(editPhoto)
+                                  : (kIsWeb
+                                      ? NetworkImage(editPhoto)
+                                      : FileImage(File(editPhoto)) as ImageProvider))
+                              : null,
+                          child: editPhoto.isEmpty
+                              ? const Icon(Icons.person, size: 40, color: Color(0xFF1B4965))
+                              : null,
+                        ),
+                        InkWell(
+                          onTap: () async {
+                            final res = await Navigator.push<Map<String, dynamic>>(
+                              context,
+                              MaterialPageRoute(builder: (_) => const FaceEnrollmentScreen()),
+                            );
+                            if (res != null) {
+                              setModalState(() {
+                                editPhoto = res['photoPath'];
+                                editEmbedding = res['embedding'];
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF145E53),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(controller: namaCtrl, decoration: const InputDecoration(labelText: 'Nama Lengkap')),
+                  TextField(controller: npmCtrl, decoration: const InputDecoration(labelText: 'NPM')),
+                  TextField(controller: prodiCtrl, decoration: const InputDecoration(labelText: 'Program Studi')),
+                  TextField(controller: tglCtrl, decoration: const InputDecoration(labelText: 'Tanggal Lahir')),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF145E53)),
+                onPressed: () async {
+                  final updated = {
+                    'nama': namaCtrl.text.trim(),
+                    'npm': npmCtrl.text.trim(),
+                    'prodi': prodiCtrl.text.trim(),
+                    'tanggal_lahir': tglCtrl.text.trim(),
+                    'foto': editPhoto,
+                    'face_embedding': editEmbedding,
+                    'biometrik_terdaftar': editEmbedding != null || editPhoto.isNotEmpty,
+                  };
+
+                  await DatabaseService.updateMember(_currentMember['id'], updated);
+                  setState(() => _currentMember.addAll(updated));
+                  if (!mounted) return;
+                  Navigator.pop(ctx);
+                  AppNotification.show(context, 'Data anggota berhasil diperbarui!');
+                },
+                child: const Text('Simpan', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _deleteMember() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          title: const Text('Hapus Anggota', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: Text('Yakin ingin menghapus ${widget.member['nama']} dari sistem?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text('Hapus Anggota', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('Yakin ingin menghapus "${_currentMember['nama']}" dari daftar anggota perpustakaan?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFC02227),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFC02227),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Hapus', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
     );
 
     if (confirm == true) {
-      await DatabaseService.deleteMember(widget.member['id']);
+      await DatabaseService.deleteMember(_currentMember['id']);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Anggota ${widget.member['nama']} berhasil dihapus.'),
-          backgroundColor: const Color(0xFFC02227),
-        ),
+      AppNotification.show(
+        context,
+        'Anggota telah dihapus.',
+        backgroundColor: const Color(0xFFC02227),
       );
       Navigator.pop(context);
     }
@@ -163,7 +214,18 @@ class _EditMemberScreenState extends State<EditMemberScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasPhoto = _currentPhoto != null && _currentPhoto!.isNotEmpty;
+    final photo = _currentMember['foto']?.toString() ?? '';
+    final hasPhoto = photo.isNotEmpty;
+    final npm = _currentMember['npm']?.toString() ?? '';
+
+    final bool isLunas = _currentMember['lunas'] == true;
+    final bool isInside = DatabaseService.isMemberInside(npm);
+
+    final borrowedRaw = _currentMember['borrowed_books'] as List? ?? [];
+    final List<Map<String, dynamic>> borrowedBooks = borrowedRaw.map((b) {
+      if (b is Map) return Map<String, dynamic>.from(b);
+      return {'judul': b.toString(), 'kode': '-', 'borrowed_at': null};
+    }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F364E),
@@ -190,18 +252,13 @@ class _EditMemberScreenState extends State<EditMemberScreen> {
                       onPressed: () => Navigator.pop(context),
                     ),
                     const Text(
-                      'Detail & Edit Anggota',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                      'Detail Anggota',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                   ],
                 ),
               ),
 
-              // Sheet Formulir
               Expanded(
                 child: Container(
                   width: double.infinity,
@@ -213,13 +270,12 @@ class _EditMemberScreenState extends State<EditMemberScreen> {
                     ),
                   ),
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Card Biometrik & Foto Profil Atas
                         Container(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(22),
@@ -227,171 +283,212 @@ class _EditMemberScreenState extends State<EditMemberScreen> {
                               BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 3)),
                             ],
                           ),
-                          child: Row(
+                          child: Column(
                             children: [
-                              CircleAvatar(
-                                radius: 46,
-                                backgroundColor: const Color(0xFFDCE8F5),
-                                backgroundImage: hasPhoto
-                                    ? (_currentPhoto!.startsWith('http')
-                                        ? NetworkImage(_currentPhoto!)
-                                        : (kIsWeb
-                                            ? NetworkImage(_currentPhoto!)
-                                            : FileImage(File(_currentPhoto!)) as ImageProvider))
-                                    : null,
-                                child: !hasPhoto
-                                    ? const Icon(Icons.person, size: 48, color: Color(0xFF1B4965))
-                                    : null,
-                              ),
-                              const SizedBox(width: 18),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                              GestureDetector(
+                                onTap: () => _showEnlargedPhoto(photo),
+                                child: Stack(
+                                  alignment: Alignment.bottomRight,
                                   children: [
-                                    const Text(
-                                      'Biometrik',
-                                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black87),
+                                    CircleAvatar(
+                                      radius: 46,
+                                      backgroundColor: const Color(0xFFDCE8F5),
+                                      backgroundImage: hasPhoto
+                                          ? (photo.startsWith('http')
+                                              ? NetworkImage(photo)
+                                              : (kIsWeb
+                                                  ? NetworkImage(photo)
+                                                  : FileImage(File(photo)) as ImageProvider))
+                                          : null,
+                                      child: !hasPhoto
+                                          ? const Icon(Icons.person, size: 48, color: Color(0xFF1B4965))
+                                          : null,
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      _isFaceUpdated
-                                          ? 'Wajah baru terpilih'
-                                          : (hasPhoto ? 'Wajah terdaftar' : 'Belum rekam wajah'),
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: _isFaceUpdated ? const Color(0xFF145E53) : const Color(0xFF616161),
-                                        fontWeight: _isFaceUpdated ? FontWeight.w600 : FontWeight.normal,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Container(
-                                      height: 34,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF145E53),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: TextButton.icon(
-                                        style: TextButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                                    if (hasPhoto)
+                                      Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black54,
+                                          shape: BoxShape.circle,
                                         ),
-                                        icon: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 18),
-                                        label: const Text(
-                                          'Edit Wajah',
-                                          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                                        ),
-                                        onPressed: _openFaceScannerForEdit,
+                                        child: const Icon(Icons.zoom_in, color: Colors.white, size: 16),
                                       ),
-                                    ),
                                   ],
                                 ),
                               ),
+                              const SizedBox(height: 14),
+
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: isLunas ? const Color(0xFFE6F4EA) : const Color(0xFFFDE8E8),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          isLunas ? Icons.check_circle_rounded : Icons.error_rounded,
+                                          color: isLunas ? const Color(0xFF145E53) : const Color(0xFFC02227),
+                                          size: 15,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          isLunas ? 'Iuran: LUNAS' : 'Iuran: BELUM LUNAS',
+                                          style: TextStyle(
+                                            color: isLunas ? const Color(0xFF145E53) : const Color(0xFFC02227),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: isInside ? const Color(0xFFE8F0FE) : const Color(0xFFF1F3F4),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          isInside ? Icons.meeting_room_rounded : Icons.no_meeting_room_rounded,
+                                          color: isInside ? const Color(0xFF1A73E8) : const Color(0xFF5F6368),
+                                          size: 15,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          isInside ? 'Di Dalam Perpus' : 'Di Luar Perpus',
+                                          style: TextStyle(
+                                            color: isInside ? const Color(0xFF1A73E8) : const Color(0xFF5F6368),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 18),
+
+                              _buildDetailRow('Nama', _currentMember['nama'] ?? '-'),
+                              _buildDetailRow('NPM', _currentMember['npm'] ?? '-'),
+                              _buildDetailRow('Program Studi', _currentMember['prodi'] ?? '-'),
+                              _buildDetailRow('Tgl Lahir', _currentMember['tanggal_lahir'] ?? '-'),
+                              _buildDetailRow('Biometrik', hasPhoto ? 'Wajah Terdaftar' : 'Belum Rekam Wajah'),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 22),
 
-                        // Form Data
-                        _buildFieldLabel('Nama'),
-                        _buildTextField(_namaController),
-                        const SizedBox(height: 14),
-
-                        _buildFieldLabel('NPM'),
-                        _buildTextField(_npmController),
-                        const SizedBox(height: 14),
-
-                        _buildFieldLabel('Program Studi'),
-                        _buildTextField(_prodiController),
-                        const SizedBox(height: 14),
-
-                        // Tanggal Lahir
-                        Row(
-                          children: [
-                            const Text(
-                              'Tanggal Lahir',
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Container(
-                                height: 44,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: const Color(0xFFCFD4DC)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        _tglController.text,
-                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.calendar_month_rounded, color: Color(0xFF145E53), size: 22),
-                                      onPressed: _pickDate,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                        const Text(
+                          'Buku yang Sedang Dipinjam',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
                         ),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 10),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFE2E4E8)),
+                          ),
+                          child: borrowedBooks.isEmpty
+                              ? const Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: Center(
+                                    child: Text(
+                                      'Tidak ada buku yang sedang dipinjam.',
+                                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                                    ),
+                                  ),
+                                )
+                              : ListView.separated(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: borrowedBooks.length,
+                                  separatorBuilder: (_, __) => const Divider(height: 1),
+                                  itemBuilder: (ctx, i) {
+                                    final b = borrowedBooks[i];
+                                    final due = DatabaseService.checkDueStatus(b['borrowed_at']);
 
-                        // Tombol Simpan Perubahan
+                                    return ListTile(
+                                      leading: const Icon(Icons.menu_book, color: Color(0xFF145E53)),
+                                      title: Text(
+                                        b['judul'] ?? 'Buku',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                      ),
+                                      subtitle: Text('Kode: ${b['kode']}', style: const TextStyle(fontSize: 11)),
+                                      trailing: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: due['isOverdue'] ? const Color(0xFFFDE8E8) : const Color(0xFFE6F4EA),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          due['text'],
+                                          style: TextStyle(
+                                            color: due['isOverdue'] ? const Color(0xFFC02227) : const Color(0xFF145E53),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                        const SizedBox(height: 26),
+
                         Container(
                           width: double.infinity,
-                          height: 48,
+                          height: 46,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(24),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF0F364E), Color(0xFF145E53)],
-                            ),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
-                            ],
+                            gradient: const LinearGradient(colors: [Color(0xFF0F364E), Color(0xFF145E53)]),
+                            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3))],
                           ),
-                          child: ElevatedButton(
+                          child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                             ),
-                            onPressed: _saveChanges,
-                            child: const Text(
-                              'Simpan Perubahan',
-                              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                            icon: const Icon(Icons.edit, color: Colors.white, size: 18),
+                            label: const Text(
+                              'Edit Anggota',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                             ),
+                            onPressed: _openEditDialog,
                           ),
                         ),
                         const SizedBox(height: 12),
 
-                        // Tombol Hapus Anggota
                         Container(
                           width: double.infinity,
-                          height: 48,
+                          height: 46,
                           decoration: BoxDecoration(
                             color: const Color(0xFFC02227),
                             borderRadius: BorderRadius.circular(24),
-                            boxShadow: const [
-                              BoxShadow(color: Color(0x33C02227), blurRadius: 6, offset: Offset(0, 3)),
-                            ],
+                            boxShadow: const [BoxShadow(color: Color(0x33C02227), blurRadius: 6, offset: Offset(0, 3))],
                           ),
-                          child: ElevatedButton(
+                          child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                             ),
-                            onPressed: _deleteMember,
-                            child: const Text(
+                            icon: const Icon(Icons.delete, color: Colors.white, size: 18),
+                            label: const Text(
                               'Hapus Anggota',
-                              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                             ),
+                            onPressed: _deleteMember,
                           ),
                         ),
                       ],
@@ -406,33 +503,19 @@ class _EditMemberScreenState extends State<EditMemberScreen> {
     );
   }
 
-  Widget _buildFieldLabel(String label) {
+  Widget _buildDetailRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
-      ),
-    );
-  }
-
-  Widget _buildTextField(TextEditingController controller) {
-    return Container(
-      height: 44,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFCFD4DC)),
-      ),
-      child: TextField(
-        controller: controller,
-        textAlignVertical: TextAlignVertical.center,
-        style: const TextStyle(fontSize: 14, color: Colors.black87),
-        decoration: const InputDecoration(
-          isDense: true,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14),
-        ),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 105,
+            child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.black87)),
+          ),
+          const Text(' :  '),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 13, color: Color(0xFF2B2B2B)))),
+        ],
       ),
     );
   }

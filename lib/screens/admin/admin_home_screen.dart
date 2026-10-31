@@ -96,248 +96,242 @@ class _DashboardTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
-      body: Stack(
-        children: [
-          // 1. Lengkungan Header Gradien Atas (Menutupi sebagian kartu atas)
-          Container(
-            height: 275,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF0F364E), // Navy gelap
-                  Color(0xFF145E53), // Teal emerald
-                ],
-              ),
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(36),
-                bottomRight: Radius.circular(36),
+      body: SingleChildScrollView(
+        child: Stack(
+          children: [
+            Container(
+              height: 315, 
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF0F364E), 
+                    Color(0xFF145E53), 
+                  ],
+                ),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(36),
+                  bottomRight: Radius.circular(36),
+                ),
               ),
             ),
-          ),
 
-          // 2. Konten Scrollable Beranda
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Baris Atas: Logo Visura + Tombol Switch Mode
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Image.asset(
-                        'assets/logo.png',
-                        height: 34,
-                        errorBuilder: (context, error, stackTrace) => const Text(
-                          'Visura',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Image.asset(
+                          'assets/logo.png',
+                          height: 32,
+                          errorBuilder: (context, error, stackTrace) => const Text(
+                            'Visura',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(
+                            Icons.swap_horiz_rounded,
                             color: Colors.white,
+                            size: 28,
                           ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.swap_horiz_rounded,
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                        tooltip: 'Ganti Perangkat',
-                        onPressed: () {
-                          if (Navigator.canPop(context)) {
-                            Navigator.pop(context);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // 3. Grid 4 Kotak Statistik Sesuai Gambar Pertama
-                  StreamBuilder<Map<String, dynamic>>(
-                    stream: DatabaseService.getDashboardStats(),
-                    builder: (context, snapshot) {
-                      final stats = snapshot.data ?? {};
-                      final pengunjung = stats['total_pengunjung']?.toString() ?? '120';
-                      final pinjam = stats['buku_dipinjam']?.toString() ?? '1';
-                      final lewat = stats['buku_lewat']?.toString() ?? '26';
-                      final tunggakan = stats['tunggakan_iuran']?.toString() ?? '1';
-
-                      return GridView.count(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 14,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        childAspectRatio: 1.18,
-                        children: [
-                          _buildStatBox(
-                            value: pengunjung,
-                            title: 'Total Pengunjung\nHari Ini',
-                            icon: Icons.home_rounded,
-                            circleColor: const Color(0xFF0F364E),
-                          ),
-                          _buildStatBox(
-                            value: pinjam,
-                            title: 'Buku Dipinjam',
-                            icon: Icons.menu_book_rounded,
-                            circleColor: const Color(0xFF145E53),
-                          ),
-                          _buildStatBox(
-                            value: lewat,
-                            title: 'Buku Lewat',
-                            icon: Icons.access_time_filled_rounded,
-                            circleColor: const Color(0xFFBA1A1A),
-                          ),
-                          _buildStatBox(
-                            value: tunggakan,
-                            title: 'Tunggakan Iuran',
-                            icon: Icons.account_balance_wallet_rounded,
-                            circleColor: const Color(0xFFBA1A1A),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 28),
-
-                  // 4. Judul Section LOG PENGUNJUNG
-                  const Text(
-                    'LOG PENGUNJUNG',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.black87,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 5. Container List Log Pengunjung
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(22),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x0C000000),
-                          blurRadius: 10,
-                          offset: Offset(0, 3),
+                          tooltip: 'Ganti Perangkat',
+                          onPressed: () {
+                            if (Navigator.canPop(context)) {
+                              Navigator.pop(context);
+                            }
+                          },
                         ),
                       ],
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: StreamBuilder<List<Map<String, dynamic>>>(
-                      stream: DatabaseService.getVisitorLogs(),
+                    const SizedBox(height: 20),
+
+                    StreamBuilder<Map<String, dynamic>>(
+                      stream: DatabaseService.getDashboardStats(),
                       builder: (context, snapshot) {
-                        final logs = snapshot.data ?? [];
+                        final stats = snapshot.data ?? {};
+                        final diPerpus = stats['total_pengunjung']?.toString() ?? '0';
+                        final pinjam = stats['buku_dipinjam']?.toString() ?? '0';
+                        final lewat = stats['buku_lewat']?.toString() ?? '0';
+                        final tunggakan = stats['tunggakan_iuran']?.toString() ?? '0';
 
-                        if (logs.isEmpty) {
-                          return const Padding(
-                            padding: EdgeInsets.all(24.0),
-                            child: Center(
-                              child: Text(
-                                'Belum ada log presensi pengunjung.',
-                                style: TextStyle(color: Colors.grey, fontSize: 13),
-                              ),
-                            ),
-                          );
-                        }
-
-                        return ListView.separated(
+                        return GridView.count(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          itemCount: logs.length,
-                          separatorBuilder: (context, index) => const Divider(
-                            height: 1,
-                            thickness: 0.8,
-                            indent: 68,
-                            endIndent: 16,
-                            color: Color(0xFFEEEEEE),
-                          ),
-                          itemBuilder: (context, index) {
-                            final log = logs[index];
-                            final foto = log['foto']?.toString() ?? '';
-                            final bool isKeluar = (log['aksi'] ?? '').toString() == 'Keluar';
-
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              child: Row(
-                                children: [
-                                  // Foto Profil / Icon Default
-                                  CircleAvatar(
-                                    radius: 20,
-                                    backgroundColor: const Color(0xFFD6E2EC),
-                                    backgroundImage: foto.isNotEmpty
-                                        ? (foto.startsWith('http')
-                                            ? NetworkImage(foto)
-                                            : (kIsWeb
-                                                ? NetworkImage(foto)
-                                                : FileImage(File(foto)) as ImageProvider))
-                                        : null,
-                                    child: foto.isEmpty
-                                        ? const Icon(Icons.person, color: Color(0xFF1B4965), size: 22)
-                                        : null,
-                                  ),
-                                  const SizedBox(width: 14),
-
-                                  // Status Kunjungan & Nama Mahasiswa
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          log['aksi'] ?? 'Mengunjungi',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13.5,
-                                            color: isKeluar ? const Color(0xFFE65100) : Colors.black87,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          log['user'] ?? '-',
-                                          style: const TextStyle(
-                                            color: Color(0xFF757575),
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  // Jam Presensi
-                                  Text(
-                                    log['waktu'] ?? '',
-                                    style: const TextStyle(
-                                      color: Color(0xFF9E9E9E),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
+                          childAspectRatio: 1.08,
+                          children: [
+                            _buildStatBox(
+                              value: diPerpus,
+                              title: 'Pengunjung di Perpus',
+                              icon: Icons.people_alt_rounded,
+                              circleColor: const Color(0xFF0F364E),
+                            ),
+                            _buildStatBox(
+                              value: pinjam,
+                              title: 'Buku Dipinjam',
+                              icon: Icons.menu_book_rounded,
+                              circleColor: const Color(0xFF145E53),
+                            ),
+                            _buildStatBox(
+                              value: lewat,
+                              title: 'Buku Tenggat',
+                              icon: Icons.access_time_filled_rounded,
+                              circleColor: const Color(0xFFBA1A1A),
+                            ),
+                            _buildStatBox(
+                              value: tunggakan,
+                              title: 'Tunggakan Iuran',
+                              icon: Icons.account_balance_wallet_rounded,
+                              circleColor: const Color(0xFFBA1A1A),
+                            ),
+                          ],
                         );
                       },
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 26),
+
+                    const Text(
+                      'LOG PENGUNJUNG',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black87,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x0C000000),
+                            blurRadius: 10,
+                            offset: Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: StreamBuilder<List<Map<String, dynamic>>>(
+                        stream: DatabaseService.getVisitorLogs(),
+                        builder: (context, snapshot) {
+                          final logs = snapshot.data ?? [];
+
+                          if (logs.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.all(24.0),
+                              child: Center(
+                                child: Text(
+                                  'Belum ada aktivitas presensi pengunjung.',
+                                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                                ),
+                              ),
+                            );
+                          }
+
+                          return ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: logs.length,
+                            separatorBuilder: (context, index) => const Divider(
+                              height: 1,
+                              thickness: 0.8,
+                              indent: 68,
+                              endIndent: 16,
+                              color: Color(0xFFEEEEEE),
+                            ),
+                            itemBuilder: (context, index) {
+                              final log = logs[index];
+                              final foto = log['foto']?.toString() ?? '';
+                              final bool isKeluar = (log['aksi'] ?? '').toString() == 'Keluar';
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 20,
+                                      backgroundColor: const Color(0xFFD6E2EC),
+                                      backgroundImage: foto.isNotEmpty
+                                          ? (foto.startsWith('http')
+                                              ? NetworkImage(foto)
+                                              : (kIsWeb
+                                                  ? NetworkImage(foto)
+                                                  : FileImage(File(foto)) as ImageProvider))
+                                          : null,
+                                      child: foto.isEmpty
+                                          ? const Icon(Icons.person, color: Color(0xFF1B4965), size: 22)
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            log['aksi'] ?? 'Mengunjungi',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13.5,
+                                              color: isKeluar ? const Color(0xFFE65100) : const Color(0xFF145E53),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            log['user'] ?? '-',
+                                            style: const TextStyle(
+                                              color: Color(0xFF757575),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      log['waktu'] ?? '',
+                                      style: const TextStyle(
+                                        color: Color(0xFF9E9E9E),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  // Desain Box Statistik Sesuai Gambar Pertama (Ikon Lingkaran + Angka Besar di Row, Teks di Bawah)
   Widget _buildStatBox({
     required String value,
     required String title,
@@ -345,7 +339,7 @@ class _DashboardTab extends StatelessWidget {
     required Color circleColor,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
@@ -359,19 +353,20 @@ class _DashboardTab extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.center,
+
         children: [
           Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
                   color: circleColor,
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child: Icon(icon, color: Colors.white, size: 22),
+                  child: Icon(icon, color: Colors.white, size: 24),
                 ),
               ),
               const SizedBox(width: 14),
@@ -379,7 +374,7 @@ class _DashboardTab extends StatelessWidget {
                 child: Text(
                   value,
                   style: const TextStyle(
-                    fontSize: 32, // Angka diperbesar tegas
+                    fontSize: 34,
                     fontWeight: FontWeight.w800,
                     color: Colors.black,
                     letterSpacing: -0.5,
@@ -388,13 +383,14 @@ class _DashboardTab extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 25), 
           Text(
             title,
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 13, 
               fontWeight: FontWeight.w700,
               color: Color(0xFF2B2B2B),
-              height: 1.25,
+              height: 1.2,
             ),
           ),
         ],

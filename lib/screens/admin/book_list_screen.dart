@@ -26,43 +26,54 @@ class _BookListScreenState extends State<BookListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F364E),
-      floatingActionButton: Container(
-        height: 46,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF0F364E), Color(0xFF145E53)],
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 8,
-              offset: Offset(0, 4),
+      floatingActionButton: ValueListenableBuilder<bool>(
+        valueListenable: AppNotification.isVisible,
+        builder: (context, isNotifVisible, child) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            margin: EdgeInsets.only(bottom: isNotifVisible ? 58.0 : 0.0),
+            child: child,
+          );
+        },
+        child: Container(
+          height: 46,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0F364E), Color(0xFF145E53)],
             ),
-          ],
-        ),
-        child: ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 8,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
-          icon: const Icon(Icons.add, color: Colors.white, size: 20),
-          label: const Text(
-            'Tambah Buku',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
             ),
+            icon: const Icon(Icons.add, color: Colors.white, size: 20),
+            label: const Text(
+              'Tambah Buku',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AddBookScreen()),
+              );
+            },
           ),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AddBookScreen()),
-            );
-          },
         ),
       ),
       body: Container(
@@ -80,7 +91,6 @@ class _BookListScreenState extends State<BookListScreen> {
           bottom: false,
           child: Column(
             children: [
-              // Header
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
                 child: Row(
@@ -110,7 +120,6 @@ class _BookListScreenState extends State<BookListScreen> {
                 ),
               ),
 
-              // Sheet Putih Konten
               Expanded(
                 child: Container(
                   width: double.infinity,
@@ -126,7 +135,6 @@ class _BookListScreenState extends State<BookListScreen> {
                     children: [
                       const SizedBox(height: 18),
 
-                      // Kolom Pencarian Judul / Kode Buku
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20.0),
                         child: Container(
@@ -187,7 +195,6 @@ class _BookListScreenState extends State<BookListScreen> {
                       ),
                       const SizedBox(height: 6),
 
-                      // List Container Buku
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -252,7 +259,6 @@ class _BookListScreenState extends State<BookListScreen> {
                                           ),
                                           child: Row(
                                             children: [
-                                              // Thumbnail Cover
                                               ClipRRect(
                                                 borderRadius: BorderRadius.circular(8),
                                                 child: Container(
@@ -268,7 +274,6 @@ class _BookListScreenState extends State<BookListScreen> {
                                               ),
                                               const SizedBox(width: 14),
 
-                                              // Label Detail
                                               const Column(
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
@@ -285,7 +290,6 @@ class _BookListScreenState extends State<BookListScreen> {
                                               ),
                                               const SizedBox(width: 10),
 
-                                              // Nilai Buku
                                               Expanded(
                                                 child: Column(
                                                   crossAxisAlignment: CrossAxisAlignment.end,

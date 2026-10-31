@@ -23,7 +23,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
   bool _isCameraReady = false;
   bool _isProcessing = false;
   Map<String, dynamic>? _recognizedMember;
-  String? _scanAction; // 'Mengunjungi' (MASUK) atau 'Keluar' (KELUAR)
+  String? _scanAction;
 
   List<Map<String, dynamic>> _registeredMembers = [];
   StreamSubscription? _membersSubscription;
@@ -110,7 +110,6 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
       if (match != null && mounted) {
         _autoScanTimer?.cancel();
 
-        // Rekam presensi otomatis ('Mengunjungi' atau 'Keluar')
         final action = await DatabaseService.recordVisitor(
           match['nama'],
           match['npm'],
@@ -122,7 +121,6 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
           _scanAction = action;
         });
 
-        // Tampilkan info selama 4 detik sebelum mulai scan wajah berikutnya
         await Future.delayed(const Duration(seconds: 4));
 
         if (mounted) {
@@ -155,7 +153,6 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 1. Live Camera Preview
           if (_isCameraReady && _controller != null)
             SizedBox.expand(
               child: FittedBox(
@@ -172,11 +169,9 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
               child: CircularProgressIndicator(color: Color(0xFF145E53)),
             ),
 
-          // 2. Overlay Bingkai Oval & Garis Laser
           SafeArea(
             child: Column(
               children: [
-                // Header Bar
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   child: Row(
@@ -224,7 +219,6 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
                 ),
                 const Spacer(),
 
-                // Bingkai Wajah Oval
                 Center(
                   child: Stack(
                     alignment: Alignment.center,
@@ -264,7 +258,6 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
                 ),
                 const SizedBox(height: 16),
 
-                // Teks Panduan Hanya Muncul Jika Belum Terdeteksi
                 if (_recognizedMember == null)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -279,12 +272,11 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
                   ),
 
                 const Spacer(),
-                const SizedBox(height: 110), // Ruang cadangan untuk kartu bawah
+                const SizedBox(height: 110), 
               ],
             ),
           ),
 
-          // 3. KARTU INFORMASI LENGKAP DI BAGIAN BAWAH
           if (_recognizedMember != null)
             Positioned(
               left: 12,
@@ -328,7 +320,6 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // KOLOM 1: Foto Profil, Nama, NPM, Jurusan
           Expanded(
             flex: 38,
             child: Row(
@@ -381,7 +372,6 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
             ),
           ),
 
-          // Garis Pemisah 1
           Container(
             width: 1,
             height: 64,
@@ -389,7 +379,6 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
             margin: const EdgeInsets.symmetric(horizontal: 8),
           ),
 
-          // KOLOM 2: Status Akses & Status Iuran
           Expanded(
             flex: 25,
             child: Column(
@@ -444,7 +433,6 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
             ),
           ),
 
-          // Garis Pemisah 2
           Container(
             width: 1,
             height: 64,
@@ -452,7 +440,6 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
             margin: const EdgeInsets.symmetric(horizontal: 8),
           ),
 
-          // KOLOM 3: Buku Dipinjam & Tenggat Waktu
           Expanded(
             flex: 37,
             child: Column(
@@ -474,7 +461,6 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
                     style: TextStyle(fontSize: 9.5, color: Colors.grey),
                   )
                 else ...[
-                  // Buku 1
                   Text(
                     '1. ${borrowedBooks[0]['judul'] ?? 'Buku'}',
                     maxLines: 1,
@@ -485,7 +471,6 @@ class _FaceScanScreenState extends State<FaceScanScreen> with SingleTickerProvid
                     'Terlambat',
                     style: TextStyle(fontSize: 8.5, color: Color(0xFFE53935), fontWeight: FontWeight.w600),
                   ),
-                  // Buku 2 (Jika ada)
                   if (borrowedBooks.length > 1) ...[
                     const SizedBox(height: 2),
                     Text(

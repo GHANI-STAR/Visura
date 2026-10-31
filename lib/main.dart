@@ -47,10 +47,7 @@ class DeviceModeScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F364E), // Navy pekat
-              Color(0xFF145E53), // Teal emerald
-            ],
+            colors: [Color(0xFF0F364E), Color(0xFF145E53)],
           ),
         ),
         child: SafeArea(
@@ -60,8 +57,6 @@ class DeviceModeScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Spacer(flex: 3),
-
-                // Logo Visura
                 Image.asset(
                   'assets/logo.png',
                   height: 64,
@@ -89,14 +84,13 @@ class DeviceModeScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-
                 const Spacer(flex: 2),
 
-                // 1. Kartu Kiosk Scan
+                // Kartu Presensi Tablet
                 _buildModeCard(
                   context: context,
-                  title: 'Kiosk Scan',
-                  subtitle: 'Untuk presensi',
+                  title: 'Presensi Tablet',
+                  subtitle: 'Untuk presensi perpus',
                   iconWidget: Container(
                     width: 58,
                     height: 42,
@@ -123,10 +117,9 @@ class DeviceModeScreen extends StatelessWidget {
                     );
                   },
                 ),
-
                 const SizedBox(height: 18),
 
-                // 2. Kartu Admin Panel
+                // Kartu Admin Panel
                 _buildModeCard(
                   context: context,
                   title: 'Admin Panel',
@@ -170,7 +163,6 @@ class DeviceModeScreen extends StatelessWidget {
                     );
                   },
                 ),
-
                 const Spacer(flex: 3),
               ],
             ),
@@ -220,20 +212,12 @@ class DeviceModeScreen extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF757575),
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF757575), fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),

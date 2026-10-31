@@ -17,7 +17,6 @@ class BookDetailScreen extends StatefulWidget {
 class _BookDetailScreenState extends State<BookDetailScreen> {
   late Map<String, dynamic> _currentBook;
   final TextEditingController _searchMemberController = TextEditingController();
-
   Map<String, dynamic>? _selectedMember;
 
   @override
@@ -32,59 +31,71 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     super.dispose();
   }
 
-  // --- PINJAM BUKU ---
+  void _showEnlargedCover(String cover) {
+    if (cover.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: InteractiveViewer(
+                  maxScale: 4.0,
+                  child: kIsWeb || cover.startsWith('http')
+                      ? Image.network(cover, fit: BoxFit.contain)
+                      : Image.file(File(cover), fit: BoxFit.contain),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: CircleAvatar(
+                backgroundColor: Colors.black54,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 22),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleBorrow() async {
     if (_selectedMember == null) return;
-
     final err = await DatabaseService.borrowBookToMember(_selectedMember!['id'], _currentBook);
     if (!mounted) return;
 
     if (err != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err), backgroundColor: const Color(0xFFC02227)),
-      );
+      AppNotification.show(context, err, backgroundColor: const Color(0xFFC02227));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Buku "${_currentBook['judul']}" berhasil dipinjamkan ke ${_selectedMember!['nama']}!'),
-          backgroundColor: const Color(0xFF145E53),
-        ),
-      );
-      setState(() {
-        final list = List<Map<String, dynamic>>.from(_selectedMember!['borrowed_books'] ?? []);
-        list.add({'kode': _currentBook['kode'], 'judul': _currentBook['judul']});
-        _selectedMember!['borrowed_books'] = list;
-      });
+      AppNotification.show(context, 'Buku berhasil dipinjamkan ke ${_selectedMember!['nama']}!');
+      setState(() {});
     }
   }
 
-  // --- KEMBALIKAN BUKU ---
   Future<void> _handleReturn() async {
     if (_selectedMember == null) return;
-
     final err = await DatabaseService.returnBookFromMember(_selectedMember!['id'], _currentBook['kode']);
     if (!mounted) return;
 
     if (err != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err), backgroundColor: const Color(0xFFC02227)),
-      );
+      AppNotification.show(context, err, backgroundColor: const Color(0xFFC02227));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Buku "${_currentBook['judul']}" berhasil dikembalikan oleh ${_selectedMember!['nama']}!'),
-          backgroundColor: const Color(0xFF145E53),
-        ),
-      );
-      setState(() {
-        final list = List<Map<String, dynamic>>.from(_selectedMember!['borrowed_books'] ?? []);
-        list.removeWhere((b) => b['kode'] == _currentBook['kode']);
-        _selectedMember!['borrowed_books'] = list;
-      });
+      AppNotification.show(context, 'Buku berhasil dikembalikan oleh ${_selectedMember!['nama']}!');
+      setState(() {});
     }
   }
 
-  // --- EDIT BUKU DENGAN GANTI COVER ---
   void _openEditDialog() {
     final judulCtrl = TextEditingController(text: _currentBook['judul']);
     final kodeCtrl = TextEditingController(text: _currentBook['kode']);
@@ -96,136 +107,150 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            void pickCoverModal() {
-              showModalBottomSheet(
-                context: context,
-                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-                builder: (bCtx) => SafeArea(
-                  child: Wrap(
-                    children: [
-                      ListTile(
-                        leading: const Icon(Icons.camera_alt_rounded, color: Color(0xFF145E53)),
-                        title: const Text('Buka Kamera Langsung'),
-                        onTap: () async {
-                          Navigator.pop(bCtx);
-                          final photoPath = await Navigator.push<String>(
-                            context,
-                            MaterialPageRoute(builder: (_) => const CameraCaptureScreen()),
-                          );
-                          if (photoPath != null) {
-                            setModalState(() => editCover = photoPath);
-                          }
-                        },
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.folder_open_rounded, color: Color(0xFF145E53)),
-                        title: const Text('Pilih dari File / Galeri'),
-                        onTap: () async {
-                          Navigator.pop(bCtx);
-                          final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
-                          if (picked != null) {
-                            setModalState(() => editCover = picked.path);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: const Text('Edit Informasi Buku', style: TextStyle(fontWeight: FontWeight.bold)),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          void pickCoverOption() {
+            showModalBottomSheet(
+              context: context,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              builder: (bCtx) => SafeArea(
+                child: Wrap(
                   children: [
-                    InkWell(
-                      onTap: pickCoverModal,
-                      child: Container(
-                        height: 90,
-                        width: 90,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF2F5),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF145E53)),
-                        ),
-                        child: editCover.isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: kIsWeb || editCover.startsWith('http')
-                                    ? Image.network(editCover, fit: BoxFit.cover)
-                                    : Image.file(File(editCover), fit: BoxFit.cover),
-                              )
-                            : const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.camera_alt, color: Color(0xFF145E53)),
-                                  SizedBox(height: 4),
-                                  Text('Ganti Cover', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                      ),
+                    ListTile(
+                      leading: const Icon(Icons.camera_alt_rounded, color: Color(0xFF145E53)),
+                      title: const Text('Buka Kamera Langsung'),
+                      onTap: () async {
+                        Navigator.pop(bCtx);
+                        final photoPath = await Navigator.push<String>(
+                          context,
+                          MaterialPageRoute(builder: (_) => const CameraCaptureScreen()),
+                        );
+                        if (photoPath != null) {
+                          setModalState(() => editCover = photoPath);
+                        }
+                      },
                     ),
-                    const SizedBox(height: 12),
-                    TextField(controller: judulCtrl, decoration: const InputDecoration(labelText: 'Judul Buku')),
-                    TextField(controller: kodeCtrl, decoration: const InputDecoration(labelText: 'Kode Buku')),
-                    TextField(controller: penulisCtrl, decoration: const InputDecoration(labelText: 'Penulis')),
-                    TextField(controller: kategoriCtrl, decoration: const InputDecoration(labelText: 'Kategori')),
-                    TextField(controller: tahunCtrl, decoration: const InputDecoration(labelText: 'Tahun Terbit')),
-                    TextField(controller: deskripsiCtrl, maxLines: 2, decoration: const InputDecoration(labelText: 'Deskripsi')),
+                    ListTile(
+                      leading: const Icon(Icons.folder_open_rounded, color: Color(0xFF145E53)),
+                      title: const Text('Pilih dari File / Galeri'),
+                      onTap: () async {
+                        Navigator.pop(bCtx);
+                        final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+                        if (picked != null) {
+                          setModalState(() => editCover = picked.path);
+                        }
+                      },
+                    ),
                   ],
                 ),
               ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal', style: TextStyle(color: Colors.grey))),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF145E53)),
-                  onPressed: () async {
-                    final updated = {
-                      'judul': judulCtrl.text.trim(),
-                      'kode': kodeCtrl.text.trim(),
-                      'penulis': penulisCtrl.text.trim(),
-                      'kategori': kategoriCtrl.text.trim(),
-                      'tahun_terbit': tahunCtrl.text.trim(),
-                      'deskripsi': deskripsiCtrl.text.trim(),
-                      'cover': editCover,
-                    };
-                    await DatabaseService.updateBook(_currentBook['id'], updated);
-                    setState(() => _currentBook.addAll(updated));
-                    if (!mounted) return;
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Buku berhasil diperbarui!'), backgroundColor: Color(0xFF145E53)),
-                    );
-                  },
-                  child: const Text('Simpan', style: TextStyle(color: Colors.white)),
-                ),
-              ],
             );
-          },
-        );
-      },
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text('Edit Informasi Buku', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: pickCoverOption,
+                    child: Container(
+                      height: 100,
+                      width: 90,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF2F5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF145E53), width: 1.5),
+                      ),
+                      child: editCover.isNotEmpty
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: kIsWeb || editCover.startsWith('http')
+                                  ? Image.network(editCover, fit: BoxFit.cover)
+                                  : Image.file(File(editCover), fit: BoxFit.cover),
+                            )
+                          : const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.camera_alt, color: Color(0xFF145E53), size: 28),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Ubah Cover',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF145E53),
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(controller: judulCtrl, decoration: const InputDecoration(labelText: 'Judul Buku')),
+                  TextField(controller: kodeCtrl, decoration: const InputDecoration(labelText: 'Kode Buku')),
+                  TextField(controller: penulisCtrl, decoration: const InputDecoration(labelText: 'Penulis')),
+                  TextField(controller: kategoriCtrl, decoration: const InputDecoration(labelText: 'Kategori')),
+                  TextField(controller: tahunCtrl, decoration: const InputDecoration(labelText: 'Tahun Terbit')),
+                  TextField(controller: deskripsiCtrl, maxLines: 2, decoration: const InputDecoration(labelText: 'Deskripsi')),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF145E53)),
+                onPressed: () async {
+                  final updated = {
+                    'judul': judulCtrl.text.trim(),
+                    'kode': kodeCtrl.text.trim(),
+                    'penulis': penulisCtrl.text.trim(),
+                    'kategori': kategoriCtrl.text.trim(),
+                    'tahun_terbit': tahunCtrl.text.trim(),
+                    'deskripsi': deskripsiCtrl.text.trim(),
+                    'cover': editCover,
+                  };
+                  await DatabaseService.updateBook(_currentBook['id'], updated);
+                  setState(() => _currentBook.addAll(updated));
+                  if (!mounted) return;
+                  Navigator.pop(ctx);
+                  AppNotification.show(context, 'Buku berhasil diperbarui!');
+                },
+                child: const Text('Simpan', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
-  // --- HAPUS BUKU ---
   Future<void> _deleteBook() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: const Text('Hapus Buku', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text('Hapus "${_currentBook['judul']}" dari katalog?'),
+        content: Text('Yakin ingin menghapus "${_currentBook['judul']}" dari katalog perpustakaan?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal', style: TextStyle(color: Colors.grey))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC02227)),
-            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFC02227),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Hapus', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -235,8 +260,10 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     if (confirm == true) {
       await DatabaseService.deleteBook(_currentBook['id']);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Buku telah dihapus.'), backgroundColor: Color(0xFFC02227)),
+      AppNotification.show(
+        context,
+        'Buku telah dihapus dari perpustakaan.',
+        backgroundColor: const Color(0xFFC02227),
       );
       Navigator.pop(context);
     }
@@ -245,14 +272,12 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final cover = _currentBook['cover']?.toString() ?? '';
+    final borrowers = DatabaseService.getBorrowersOfBook(_currentBook['kode']);
 
-    // Cek apakah mahasiswa terpilih sedang meminjam buku ini
     bool isCurrentBookBorrowedBySelected = false;
-    List<Map<String, dynamic>> borrowedList = [];
     if (_selectedMember != null) {
       final raw = _selectedMember!['borrowed_books'] as List? ?? [];
-      borrowedList = raw.map((e) => Map<String, dynamic>.from(e)).toList();
-      isCurrentBookBorrowedBySelected = borrowedList.any((b) => b['kode'] == _currentBook['kode']);
+      isCurrentBookBorrowedBySelected = raw.any((b) => b['kode'] == _currentBook['kode']);
     }
 
     return Scaffold(
@@ -269,7 +294,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
           bottom: false,
           child: Column(
             children: [
-              // Header Seragam (Back di kiri, Judul di kanan)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 10, 20, 16),
                 child: Row(
@@ -286,8 +310,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                   ],
                 ),
               ),
-
-              // Sheet Putih Konten
               Expanded(
                 child: Container(
                   width: double.infinity,
@@ -303,13 +325,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Informasi Buku',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Kartu Rincian Buku (Tanpa status lokasi)
                         Container(
                           padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
@@ -320,24 +335,42 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                             ],
                           ),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Center(
-                                child: Container(
-                                  width: 85,
-                                  height: 95,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFE9EDF2),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: cover.isNotEmpty
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(10),
-                                          child: kIsWeb || cover.startsWith('http')
-                                              ? Image.network(cover, fit: BoxFit.cover)
-                                              : Image.file(File(cover), fit: BoxFit.cover),
-                                        )
-                                      : const Icon(Icons.menu_book_rounded, size: 48, color: Color(0xFF145E53)),
+                              GestureDetector(
+                                onTap: () => _showEnlargedCover(cover),
+                                child: Stack(
+                                  alignment: Alignment.bottomRight,
+                                  children: [
+                                    Container(
+                                      width: 95,
+                                      height: 110,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFE9EDF2),
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: const [
+                                          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+                                        ],
+                                      ),
+                                      child: cover.isNotEmpty
+                                          ? ClipRRect(
+                                              borderRadius: BorderRadius.circular(12),
+                                              child: kIsWeb || cover.startsWith('http')
+                                                  ? Image.network(cover, fit: BoxFit.cover)
+                                                  : Image.file(File(cover), fit: BoxFit.cover),
+                                            )
+                                          : const Icon(Icons.menu_book_rounded, size: 52, color: Color(0xFF145E53)),
+                                    ),
+                                    if (cover.isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.all(4),
+                                        margin: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black54,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.zoom_in, color: Colors.white, size: 16),
+                                      ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(height: 18),
@@ -345,19 +378,65 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                               _buildDetailRow('Kode', _currentBook['kode'] ?? '-'),
                               _buildDetailRow('Penulis', _currentBook['penulis'] ?? '-'),
                               _buildDetailRow('Kategori', _currentBook['kategori'] ?? '-'),
-                              _buildDetailRow('Tahun Terbit', _currentBook['tahun_terbit'] ?? '-'),
+                              _buildDetailRow('Tahun', _currentBook['tahun_terbit'] ?? '-'),
                               _buildDetailRow('Deskripsi', _currentBook['deskripsi'] ?? '-', isMultiLine: true),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 22),
 
-                        // BAGIAN LOG PENCARIAN MAHASISWA & PEMINJAMAN
                         const Text(
-                          'Peminjaman Mahasiswa',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                          'Sedang Dipinjam Oleh:',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 10),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFE2E4E8)),
+                          ),
+                          child: borrowers.isEmpty
+                              ? const Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: Center(
+                                    child: Text('Belum ada yang meminjam buku ini.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                                  ),
+                                )
+                              : ListView.separated(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: borrowers.length,
+                                  separatorBuilder: (_, __) => const Divider(height: 1),
+                                  itemBuilder: (ctx, i) {
+                                    final b = borrowers[i];
+                                    return ListTile(
+                                      leading: const CircleAvatar(
+                                        backgroundColor: Color(0xFFDCE8F5),
+                                        child: Icon(Icons.person, color: Color(0xFF145E53)),
+                                      ),
+                                      title: Text(b['nama'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                      subtitle: Text('NPM: ${b['npm']} • ${b['prodi']}', style: const TextStyle(fontSize: 11)),
+                                      trailing: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: b['isOverdue'] ? const Color(0xFFFDE8E8) : const Color(0xFFE6F4EA),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          b['status_tenggat'],
+                                          style: TextStyle(
+                                            color: b['isOverdue'] ? const Color(0xFFC02227) : const Color(0xFF145E53),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                        const SizedBox(height: 24),
 
                         Container(
                           padding: const EdgeInsets.all(16),
@@ -369,154 +448,61 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Input Search Mahasiswa
-                              Container(
-                                height: 44,
-                                padding: const EdgeInsets.symmetric(horizontal: 14),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF7F8FA),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFFD6DBE2)),
-                                ),
-                                child: TextField(
-                                  controller: _searchMemberController,
-                                  textAlignVertical: TextAlignVertical.center,
-                                  onChanged: (val) => setState(() {}),
-                                  style: const TextStyle(fontSize: 13),
-                                  decoration: const InputDecoration(
-                                    isDense: true,
-                                    hintText: 'Cari Nama atau NPM Mahasiswa...',
-                                    hintStyle: TextStyle(color: Color(0xFF9E9E9E), fontSize: 13),
-                                    border: InputBorder.none,
-                                    suffixIcon: Icon(Icons.search, size: 20, color: Colors.grey),
-                                  ),
+                              TextField(
+                                controller: _searchMemberController,
+                                onChanged: (val) => setState(() {}),
+                                decoration: const InputDecoration(
+                                  hintText: 'Cari Mahasiswa peminjam...',
+                                  prefixIcon: Icon(Icons.search),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                                  isDense: true,
                                 ),
                               ),
-                              const SizedBox(height: 12),
-
-                              // Log List Mahasiswa yang Terdaftar
+                              const SizedBox(height: 10),
                               StreamBuilder<List<Map<String, dynamic>>>(
                                 stream: DatabaseService.getMembers(),
                                 builder: (context, snapshot) {
-                                  final allMembers = snapshot.data ?? [];
-                                  final query = _searchMemberController.text.trim().toLowerCase();
-
-                                  final filtered = allMembers.where((m) {
-                                    final nama = m['nama']?.toString().toLowerCase() ?? '';
-                                    final npm = m['npm']?.toString().toLowerCase() ?? '';
-                                    return nama.contains(query) || npm.contains(query);
-                                  }).toList();
-
-                                  if (filtered.isEmpty) {
-                                    return const Padding(
-                                      padding: EdgeInsets.symmetric(vertical: 8),
-                                      child: Text('Mahasiswa tidak ditemukan.', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                                    );
-                                  }
+                                  final members = snapshot.data ?? [];
+                                  final q = _searchMemberController.text.trim().toLowerCase();
+                                  final filtered = members.where((m) => m['nama'].toLowerCase().contains(q) || m['npm'].contains(q)).toList();
 
                                   return Container(
-                                    constraints: const BoxConstraints(maxHeight: 140),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFAFAFA),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: const Color(0xFFE5E5E5)),
-                                    ),
-                                    child: ListView.separated(
+                                    constraints: const BoxConstraints(maxHeight: 120),
+                                    child: ListView.builder(
                                       shrinkWrap: true,
                                       itemCount: filtered.length,
-                                      separatorBuilder: (_, __) => const Divider(height: 1),
-                                      itemBuilder: (context, idx) {
-                                        final m = filtered[idx];
-                                        final isSelected = _selectedMember?['id'] == m['id'];
-
+                                      itemBuilder: (ctx, i) {
+                                        final m = filtered[i];
+                                        final isSel = _selectedMember?['id'] == m['id'];
                                         return ListTile(
                                           dense: true,
-                                          selected: isSelected,
-                                          selectedTileColor: const Color(0xFFE6F4EA),
-                                          title: Text(m['nama'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                          subtitle: Text('NPM: ${m['npm'] ?? '-'}', style: const TextStyle(fontSize: 11)),
-                                          trailing: isSelected ? const Icon(Icons.check_circle, color: Color(0xFF145E53), size: 18) : null,
-                                          onTap: () {
-                                            setState(() => _selectedMember = m);
-                                          },
+                                          selected: isSel,
+                                          selectedTileColor: const Color(0xFFEAF5F2),
+                                          title: Text(m['nama'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          subtitle: Text(m['npm']),
+                                          onTap: () => setState(() => _selectedMember = m),
                                         );
                                       },
                                     ),
                                   );
                                 },
                               ),
-
-                              // Tampilan Detail Mahasiswa Terpilih
                               if (_selectedMember != null) ...[
-                                const SizedBox(height: 14),
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF3F7F6),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFF145E53).withOpacity(0.3)),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            'Peminjam: ${_selectedMember!['nama']}',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                          ),
-                                          IconButton(
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(),
-                                            icon: const Icon(Icons.close, size: 16, color: Colors.grey),
-                                            onPressed: () => setState(() => _selectedMember = null),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Buku sedang dipinjam: ${borrowedList.isEmpty ? "Tidak ada" : borrowedList.map((b) => b['judul']).join(", ")}',
-                                        style: const TextStyle(fontSize: 12, color: Color(0xFF424242)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-
-                                // Tombol Aksi Pinjam & Kembalikan
+                                const SizedBox(height: 12),
                                 Row(
                                   children: [
                                     Expanded(
                                       child: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: !isCurrentBookBorrowedBySelected ? const Color(0xFF145E53) : Colors.grey[400],
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                          padding: const EdgeInsets.symmetric(vertical: 11),
-                                        ),
+                                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF145E53)),
                                         onPressed: !isCurrentBookBorrowedBySelected ? _handleBorrow : null,
-                                        child: const Text('Pinjamkan Buku', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                        child: const Text('Pinjamkan', style: TextStyle(color: Colors.white)),
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
+                                    const SizedBox(width: 10),
                                     Expanded(
                                       child: OutlinedButton(
-                                        style: OutlinedButton.styleFrom(
-                                          side: BorderSide(
-                                            color: isCurrentBookBorrowedBySelected ? const Color(0xFFC02227) : Colors.grey[400]!,
-                                            width: 1.2,
-                                          ),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                          padding: const EdgeInsets.symmetric(vertical: 11),
-                                        ),
                                         onPressed: isCurrentBookBorrowedBySelected ? _handleReturn : null,
-                                        child: Text(
-                                          'Kembalikan Buku',
-                                          style: TextStyle(
-                                            color: isCurrentBookBorrowedBySelected ? const Color(0xFFC02227) : Colors.grey[400],
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
+                                        child: const Text('Kembalikan'),
                                       ),
                                     ),
                                   ],
@@ -525,9 +511,8 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 26),
 
-                        // TOMBOL EDIT & HAPUS BUKU DI BAGIAN BAWAH
                         Container(
                           width: double.infinity,
                           height: 46,
@@ -582,26 +567,16 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
 
   Widget _buildDetailRow(String label, String value, {bool isMultiLine = false}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: isMultiLine ? CrossAxisAlignment.start : CrossAxisAlignment.center,
         children: [
           SizedBox(
-            width: 90,
+            width: 80,
             child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.black87)),
           ),
-          const Text(' :  ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isMultiLine ? FontWeight.normal : FontWeight.w600,
-                color: const Color(0xFF2B2B2B),
-                height: 1.25,
-              ),
-            ),
-          ),
+          const Text(' :  '),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 13, color: Color(0xFF2B2B2B)))),
         ],
       ),
     );

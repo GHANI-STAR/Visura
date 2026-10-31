@@ -22,47 +22,122 @@ class _MemberListScreenState extends State<MemberListScreen> {
     super.dispose();
   }
 
+  void _showEnlargedPhoto(BuildContext context, String photo, String nama) {
+    if (photo.isEmpty) {
+      AppNotification.show(
+        context,
+        'Mahasiswa $nama belum memiliki foto profil terdaftar.',
+        backgroundColor: const Color(0xFFC02227),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  color: Colors.black87,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InteractiveViewer(
+                        maxScale: 4.0,
+                        child: kIsWeb || photo.startsWith('http')
+                            ? Image.network(photo, fit: BoxFit.contain)
+                            : Image.file(File(photo), fit: BoxFit.contain),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Text(
+                          nama,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: CircleAvatar(
+                backgroundColor: Colors.black54,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 22),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F364E),
-      floatingActionButton: Container(
-        height: 46,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF0F364E), Color(0xFF145E53)],
+      floatingActionButton: ValueListenableBuilder<bool>(
+        valueListenable: AppNotification.isVisible,
+        builder: (context, isNotifVisible, child) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            margin: EdgeInsets.only(bottom: isNotifVisible ? 68.0 : 0.0),
+            child: child,
+          );
+        },
+        child: Container(
+          height: 48,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 8,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 8,
-              offset: Offset(0, 4),
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0E3D48),
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(26),
+              ),
             ),
-          ],
-        ),
-        child: ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-          ),
-          icon: const Icon(Icons.add, color: Colors.white, size: 20),
-          label: const Text(
-            'Tambah Anggota',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
+            icon: const Icon(Icons.add, color: Colors.white, size: 20),
+            label: const Text(
+              'Tambah Anggota',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13.5,
+              ),
             ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AddMemberScreen()),
+              );
+            },
           ),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AddMemberScreen()),
-            );
-          },
         ),
       ),
       body: Container(
@@ -70,17 +145,13 @@ class _MemberListScreenState extends State<MemberListScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F364E),
-              Color(0xFF145E53),
-            ],
+            colors: [Color(0xFF0F364E), Color(0xFF145E53)],
           ),
         ),
         child: SafeArea(
           bottom: false,
           child: Column(
             children: [
-              // Header
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
                 child: Row(
@@ -99,7 +170,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
                       ),
                     ),
                     const Text(
-                      'Daftar Anggota',
+                      'Pengelola Anggota',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -110,7 +181,6 @@ class _MemberListScreenState extends State<MemberListScreen> {
                 ),
               ),
 
-              // Sheet Konten
               Expanded(
                 child: Container(
                   width: double.infinity,
@@ -122,10 +192,10 @@ class _MemberListScreenState extends State<MemberListScreen> {
                     ),
                   ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 18),
 
-                      // Kolom Pencarian NPM
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20.0),
                         child: Container(
@@ -144,7 +214,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
                             onChanged: (val) => setState(() => _searchQuery = val.trim()),
                             decoration: const InputDecoration(
                               isDense: true,
-                              hintText: 'Input NPM Mahasiswa',
+                              hintText: 'Input NPM / Nama Mahasiswa',
                               hintStyle: TextStyle(
                                 color: Color(0xFF9E9E9E),
                                 fontSize: 13.5,
@@ -159,141 +229,136 @@ class _MemberListScreenState extends State<MemberListScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 16),
 
-                      // List Mahasiswa
                       Expanded(
                         child: StreamBuilder<List<Map<String, dynamic>>>(
                           stream: DatabaseService.getMembers(),
                           builder: (context, snapshot) {
-                            final memberList = snapshot.data ?? [];
-
-                            final filteredList = memberList.where((item) {
-                              final npm = item['npm']?.toString().toLowerCase() ?? '';
-                              final nama = item['nama']?.toString().toLowerCase() ?? '';
+                            final members = snapshot.data ?? [];
+                            final filtered = members.where((m) {
+                              final nama = m['nama']?.toString().toLowerCase() ?? '';
+                              final npm = m['npm']?.toString().toLowerCase() ?? '';
                               final q = _searchQuery.toLowerCase();
-                              return npm.contains(q) || nama.contains(q);
+                              return nama.contains(q) || npm.contains(q);
                             }).toList();
 
-                            if (filteredList.isEmpty) {
+                            if (filtered.isEmpty) {
                               return const Center(
-                                child: Text(
-                                  'Belum ada data anggota.',
-                                  style: TextStyle(color: Colors.grey),
-                                ),
+                                child: Text('Belum ada data anggota.', style: TextStyle(color: Colors.grey)),
                               );
                             }
 
                             return ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 75),
-                              itemCount: filteredList.length,
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 36),
+                              itemCount: filtered.length,
                               itemBuilder: (context, index) {
-                                final member = filteredList[index];
-                                final bool isLunas = member['lunas'] == true;
+                                final member = filtered[index];
                                 final foto = member['foto']?.toString() ?? '';
+                                final nama = member['nama'] ?? '-';
+                                final hasPhoto = foto.isNotEmpty;
 
-                                return InkWell(
-                                  borderRadius: BorderRadius.circular(20),
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => EditMemberScreen(member: member),
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(18),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x08000000),
+                                        blurRadius: 8,
+                                        offset: Offset(0, 3),
                                       ),
-                                    );
-                                  },
-                                  child: Container(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(20),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Color(0x0A000000),
-                                          blurRadius: 8,
-                                          offset: Offset(0, 3),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        // Foto Profil Asli atau Icon Default
-                                        CircleAvatar(
-                                          radius: 26,
-                                          backgroundColor: const Color(0xFFDCE8F5),
-                                          backgroundImage: foto.isNotEmpty
-                                              ? (foto.startsWith('http')
-                                                  ? NetworkImage(foto)
-                                                  : (kIsWeb
-                                                      ? NetworkImage(foto)
-                                                      : FileImage(File(foto)) as ImageProvider))
-                                              : null,
-                                          child: foto.isEmpty
-                                              ? const Icon(Icons.person, size: 28, color: Color(0xFF1B4965))
-                                              : null,
-                                        ),
-                                        const SizedBox(width: 14),
-
-                                        // Keterangan Mahasiswa
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                member['nama'] ?? 'Tanpa Nama',
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.black87,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                member['npm'] ?? '-',
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Color(0xFF424242),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Row(
+                                    ],
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(18),
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => EditMemberScreen(member: member),
+                                          ),
+                                        );
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(14),
+                                        child: Row(
+                                          children: [
+                                            GestureDetector(
+                                              onTap: () => _showEnlargedPhoto(context, foto, nama),
+                                              child: Stack(
+                                                alignment: Alignment.bottomRight,
                                                 children: [
-                                                  Icon(
-                                                    isLunas ? Icons.check_circle : Icons.error,
-                                                    color: isLunas
-                                                        ? const Color(0xFF145E53)
-                                                        : const Color(0xFFC02227),
-                                                    size: 16,
+                                                  CircleAvatar(
+                                                    radius: 26,
+                                                    backgroundColor: const Color(0xFFDCE8F5),
+                                                    backgroundImage: hasPhoto
+                                                        ? (foto.startsWith('http')
+                                                            ? NetworkImage(foto)
+                                                            : (kIsWeb
+                                                                ? NetworkImage(foto)
+                                                                : FileImage(File(foto)) as ImageProvider))
+                                                        : null,
+                                                    child: !hasPhoto
+                                                        ? const Icon(Icons.person, color: Color(0xFF1B4965), size: 28)
+                                                        : null,
                                                   ),
-                                                  const SizedBox(width: 6),
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 2.5,
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      color: isLunas
-                                                          ? const Color(0xFF145E53)
-                                                          : const Color(0xFFC02227),
-                                                      borderRadius: BorderRadius.circular(16),
-                                                    ),
-                                                    child: Text(
-                                                      isLunas ? 'Lunas' : 'Belum Lunas',
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 10.5,
-                                                        fontWeight: FontWeight.w600,
+                                                  if (hasPhoto)
+                                                    Container(
+                                                      padding: const EdgeInsets.all(3),
+                                                      decoration: const BoxDecoration(
+                                                        color: Color(0xFF145E53),
+                                                        shape: BoxShape.circle,
                                                       ),
+                                                      child: const Icon(Icons.zoom_in, color: Colors.white, size: 12),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 14),
+
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    nama,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 14.5,
+                                                      color: Colors.black87,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    'NPM: ${member['npm'] ?? '-'}',
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      color: Color(0xFF616161),
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    member['prodi'] ?? 'Informatika',
+                                                    style: const TextStyle(
+                                                      fontSize: 11.5,
+                                                      color: Color(0xFF8A9099),
                                                     ),
                                                   ),
                                                 ],
                                               ),
-                                            ],
-                                          ),
+                                            ),
+
+                                            const Icon(
+                                              Icons.arrow_forward_ios_rounded,
+                                              size: 16,
+                                              color: Color(0xFFB0B7C3),
+                                            ),
+                                          ],
                                         ),
-                                      ],
+                                      ),
                                     ),
                                   ),
                                 );
