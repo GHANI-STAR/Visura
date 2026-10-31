@@ -60,7 +60,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     }
   }
 
-  // Masuk ke Layar Kamera untuk Rekam Wajah Asli
   Future<void> _openFaceScanner() async {
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
@@ -100,8 +99,8 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
       'tanggal_lahir': _tglController.text.trim().isEmpty ? '-' : _tglController.text.trim(),
       'lunas': true,
       'biometrik_terdaftar': _faceEmbedding != null,
-      'foto': _facePhotoPath ?? '', // Foto kamera dijadikan PP
-      'face_embedding': _faceEmbedding, // Vektor biometrik asli
+      'foto': _facePhotoPath ?? '',
+      'face_embedding': _faceEmbedding, 
       'kekurangan_iuran': '0',
     };
 
@@ -224,7 +223,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                         ),
                         const SizedBox(height: 22),
 
-                        // Section Biometrik Scan Wajah
                         const Text(
                           'Rekam Wajah (Biometrik)',
                           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.black87),
@@ -243,7 +241,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
-                              // Preview Foto Profil Asli Hasil Jepretan Kamera
                               Container(
                                 width: 90,
                                 height: 90,
@@ -261,7 +258,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                                     : const Icon(Icons.person, size: 54, color: Color(0xFF1B4965)),
                               ),
 
-                              // Tombol Buka Kamera
                               InkWell(
                                 borderRadius: BorderRadius.circular(14),
                                 onTap: _openFaceScanner,
@@ -292,7 +288,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                         ),
                         const SizedBox(height: 24),
 
-                        // Tombol Daftarkan Anggota
                         Container(
                           width: double.infinity,
                           height: 48,

@@ -1,81 +1,56 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
 
 class DatabaseService {
-  // Cek apakah Firebase sudah diinisialisasi
+  static bool isMemberInside(String npm) {
+    return _activeInsideNPMs.contains(npm.trim());
+  }
   static bool get isFirebaseReady => Firebase.apps.isNotEmpty;
 
-  // ===========================================================================
-  // 1. STATISTIK DASHBOARD
-  // ===========================================================================
   static final _statsController = StreamController<Map<String, dynamic>>.broadcast();
   static Map<String, dynamic> _currentStats = {
-    'total_pengunjung': '120',
+    'total_pengunjung': '0',
     'buku_dipinjam': '1',
-    'buku_lewat': '26',
+    'buku_lewat': '0',
     'tunggakan_iuran': '1',
   };
 
+  static void _updateStats() {
+    _currentStats['buku_lewat'] = getOverdueCount().toString();
+    _currentStats['tunggakan_iuran'] = _membersList.where((m) => m['lunas'] == false).length.toString();
+    _currentStats['total_pengunjung'] = _activeInsideNPMs.length.toString();
+    _statsController.add(Map.from(_currentStats));
+  }
+
   static Stream<Map<String, dynamic>> getDashboardStats() {
-    if (isFirebaseReady) {
-      return FirebaseFirestore.instance
-          .collection('dashboard')
-          .doc('stats')
-          .snapshots()
-          .map((doc) => doc.exists ? doc.data()! : _currentStats);
-    }
-    Future.microtask(() => _statsController.add(_currentStats));
+    Timer.periodic(const Duration(seconds: 10), (_) => _updateStats());
+    Future.microtask(() => _updateStats());
     return _statsController.stream;
   }
 
-  // ===========================================================================
-  // 2. LOG PENGUNJUNG (PRESENSI KIOSK OTOMATIS)
-  // ===========================================================================
-// ==========================================
-  // LOG PENGUNJUNG (PRESENSI KIOSK OTOMATIS)
-  // ==========================================
   static final _visitorLogsController = StreamController<List<Map<String, dynamic>>>.broadcast();
   static final List<Map<String, dynamic>> _visitorLogsList = [];
-
-  // Set untuk mendata NPM mahasiswa yang sedang berada di dalam perpus
   static final Set<String> _activeInsideNPMs = {};
 
   static Stream<List<Map<String, dynamic>>> getVisitorLogs() {
-    if (isFirebaseReady) {
-      return FirebaseFirestore.instance
-          .collection('visitor_logs')
-          .orderBy('timestamp', descending: true)
-          .limit(10)
-          .snapshots()
-          .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
-    }
     Future.microtask(() => _visitorLogsController.add(List.from(_visitorLogsList)));
     return _visitorLogsController.stream;
   }
 
-  // Dipanggil otomatis oleh kamera Kiosk saat wajah terdeteksi
   static Future<String> recordVisitor(String nama, String npm, {String? foto}) async {
     final now = DateTime.now();
     final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-
-    // 1. Cek apakah mahasiswa sedang berada di dalam perpustakaan
     final bool isInside = _activeInsideNPMs.contains(npm);
     final String aksi = isInside ? 'Keluar' : 'Mengunjungi';
 
-    // 2. Update status keberadaan mahasiswa di perpustakaan
     if (isInside) {
-      _activeInsideNPMs.remove(npm); // Mahasiswa keluar
+      _activeInsideNPMs.remove(npm);
     } else {
-      _activeInsideNPMs.add(npm); // Mahasiswa masuk
+      _activeInsideNPMs.add(npm);
     }
 
-    // 3. Update counter total orang yang ada di dalam perpus secara real-time
-    final int jumlahDiPerpus = _activeInsideNPMs.length;
-    _currentStats['total_pengunjung'] = jumlahDiPerpus.toString();
-    _statsController.add(_currentStats);
-
-    // Cari foto mahasiswa jika tidak dilempar langsung
     String memberPhoto = foto ?? '';
     if (memberPhoto.isEmpty) {
       final found = _membersList.firstWhere(
@@ -94,27 +69,13 @@ class DatabaseService {
       'waktu': timeStr,
     };
 
-    if (isFirebaseReady) {
-      await FirebaseFirestore.instance.collection('visitor_logs').add({
-        ...newLog,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-      await FirebaseFirestore.instance.collection('dashboard').doc('stats').update({
-        'total_pengunjung': jumlahDiPerpus,
-      });
-      return aksi;
-    }
-
-    // Log terbaru selalu disisipkan di baris paling atas
     _visitorLogsList.insert(0, newLog);
     _visitorLogsController.add(List.from(_visitorLogsList));
+    _updateStats();
 
     return aksi;
   }
 
-  // ===========================================================================
-  // 3. ANGGOTA & BIOMETRIK (CRUD)
-  // ===========================================================================
   static final _membersController = StreamController<List<Map<String, dynamic>>>.broadcast();
   static final List<Map<String, dynamic>> _membersList = [
     {
@@ -127,7 +88,11 @@ class DatabaseService {
       'foto': '',
       'biometrik_terdaftar': true,
       'borrowed_books': <Map<String, dynamic>>[
-        {'kode': '67676767', 'judul': 'Super Maharaja King Afif Murtadho'},
+        {
+          'kode': '67676767',
+          'judul': 'Super Maharaja King Afif Murtadho',
+          'borrowed_at': DateTime.now().subtract(const Duration(minutes: 3)).toIso8601String(),
+        },
       ],
       'kekurangan_iuran': '0',
     },
@@ -142,17 +107,11 @@ class DatabaseService {
       'biometrik_terdaftar': false,
       'borrowed_books': <Map<String, dynamic>>[],
       'kekurangan_iuran': '2,000',
-      'tagihan': '1.990.000,00',
+      'tagihan': '2.000,00',
     },
   ];
 
   static Stream<List<Map<String, dynamic>>> getMembers() {
-    if (isFirebaseReady) {
-      return FirebaseFirestore.instance
-          .collection('members')
-          .snapshots()
-          .map((snapshot) => snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList());
-    }
     Future.microtask(() => _membersController.add(List.from(_membersList)));
     return _membersController.stream;
   }
@@ -161,66 +120,49 @@ class DatabaseService {
     final newMember = {
       ...data,
       'id': 'mem_${DateTime.now().millisecondsSinceEpoch}',
+      'lunas': false, 
+      'kekurangan_iuran': '2,000',
+      'tagihan': '2.000,00',
       'borrowed_books': <Map<String, dynamic>>[],
     };
-
-    if (isFirebaseReady) {
-      await FirebaseFirestore.instance.collection('members').add(newMember);
-      return;
-    }
-
     _membersList.insert(0, newMember);
     _membersController.add(List.from(_membersList));
+    _updateStats();
   }
 
   static Future<void> updateMember(String id, Map<String, dynamic> data) async {
-    if (isFirebaseReady) {
-      await FirebaseFirestore.instance.collection('members').doc(id).update(data);
-      return;
-    }
-
     final index = _membersList.indexWhere((m) => m['id'] == id);
     if (index != -1) {
       _membersList[index] = {..._membersList[index], ...data};
       _membersController.add(List.from(_membersList));
+      _updateStats();
     }
   }
 
   static Future<void> deleteMember(String id) async {
-    if (isFirebaseReady) {
-      await FirebaseFirestore.instance.collection('members').doc(id).delete();
-      return;
-    }
-
     _membersList.removeWhere((m) => m['id'] == id);
     _membersController.add(List.from(_membersList));
+    _updateStats();
   }
 
-  // ===========================================================================
-  // 4. IURAN & LANGGANAN
-  // ===========================================================================
+  static Future<void> resetSemesterSubscriptions() async {
+    for (var member in _membersList) {
+      member['lunas'] = false;
+      member['kekurangan_iuran'] = '2,000';
+      member['tagihan'] = '2.000,00';
+    }
+    _membersController.add(List.from(_membersList));
+    _updateStats();
+  }
+
   static Stream<List<Map<String, dynamic>>> getUnpaidMembers() {
     return getMembers().map((list) => list.where((m) => m['lunas'] == false).toList());
   }
 
   static Future<void> paySubscription(String id, String method) async {
     await updateMember(id, {'lunas': true, 'kekurangan_iuran': '0'});
-
-    if (isFirebaseReady) {
-      await FirebaseFirestore.instance.collection('dashboard').doc('stats').update({
-        'tunggakan_iuran': FieldValue.increment(-1),
-      });
-      return;
-    }
-
-    int sisa = int.tryParse(_currentStats['tunggakan_iuran'].toString()) ?? 1;
-    _currentStats['tunggakan_iuran'] = (sisa > 0 ? sisa - 1 : 0).toString();
-    _statsController.add(_currentStats);
   }
 
-  // ===========================================================================
-  // 5. KATALOG BUKU (CRUD)
-  // ===========================================================================
   static final _booksController = StreamController<List<Map<String, dynamic>>>.broadcast();
   static final List<Map<String, dynamic>> _booksList = [
     {
@@ -246,12 +188,6 @@ class DatabaseService {
   ];
 
   static Stream<List<Map<String, dynamic>>> getBooks() {
-    if (isFirebaseReady) {
-      return FirebaseFirestore.instance
-          .collection('books')
-          .snapshots()
-          .map((snapshot) => snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList());
-    }
     Future.microtask(() => _booksController.add(List.from(_booksList)));
     return _booksController.stream;
   }
@@ -261,22 +197,11 @@ class DatabaseService {
       ...data,
       'id': 'book_${DateTime.now().millisecondsSinceEpoch}',
     };
-
-    if (isFirebaseReady) {
-      await FirebaseFirestore.instance.collection('books').add(newBook);
-      return;
-    }
-
     _booksList.insert(0, newBook);
     _booksController.add(List.from(_booksList));
   }
 
   static Future<void> updateBook(String id, Map<String, dynamic> data) async {
-    if (isFirebaseReady) {
-      await FirebaseFirestore.instance.collection('books').doc(id).update(data);
-      return;
-    }
-
     final index = _booksList.indexWhere((b) => b['id'] == id);
     if (index != -1) {
       _booksList[index] = {..._booksList[index], ...data};
@@ -285,18 +210,10 @@ class DatabaseService {
   }
 
   static Future<void> deleteBook(String id) async {
-    if (isFirebaseReady) {
-      await FirebaseFirestore.instance.collection('books').doc(id).delete();
-      return;
-    }
-
     _booksList.removeWhere((b) => b['id'] == id);
     _booksController.add(List.from(_booksList));
   }
 
-  // ===========================================================================
-  // 6. SISTEM SIRKULASI BUKU (PINJAM & KEMBALIKAN)
-  // ===========================================================================
   static Future<String?> borrowBookToMember(String memberId, Map<String, dynamic> bookData) async {
     final memberIndex = _membersList.indexWhere((m) => m['id'] == memberId);
     if (memberIndex == -1) return 'Mahasiswa tidak ditemukan!';
@@ -305,34 +222,19 @@ class DatabaseService {
     List<dynamic> rawList = member['borrowed_books'] ?? [];
     List<Map<String, dynamic>> borrowed = rawList.map((e) => Map<String, dynamic>.from(e)).toList();
 
-    final alreadyBorrowed = borrowed.any((b) => b['kode'] == bookData['kode']);
-    if (alreadyBorrowed) {
-      return 'Mahasiswa ini sudah sedang meminjam buku ini!';
+    if (borrowed.any((b) => b['kode'] == bookData['kode'])) {
+      return 'Mahasiswa ini sedang meminjam buku ini!';
     }
 
     borrowed.add({
       'kode': bookData['kode'],
       'judul': bookData['judul'],
-      'tanggal': DateTime.now().toString().substring(0, 10),
+      'borrowed_at': DateTime.now().toIso8601String(),
     });
-
-    if (isFirebaseReady) {
-      await FirebaseFirestore.instance.collection('members').doc(memberId).update({
-        'borrowed_books': borrowed,
-      });
-      await FirebaseFirestore.instance.collection('dashboard').doc('stats').update({
-        'buku_dipinjam': FieldValue.increment(1),
-      });
-      return null;
-    }
 
     _membersList[memberIndex]['borrowed_books'] = borrowed;
     _membersController.add(List.from(_membersList));
-
-    int total = int.tryParse(_currentStats['buku_dipinjam'].toString()) ?? 0;
-    _currentStats['buku_dipinjam'] = (total + 1).toString();
-    _statsController.add(_currentStats);
-
+    _updateStats();
     return null;
   }
 
@@ -350,24 +252,92 @@ class DatabaseService {
     }
 
     borrowed.removeAt(bookIndex);
-
-    if (isFirebaseReady) {
-      await FirebaseFirestore.instance.collection('members').doc(memberId).update({
-        'borrowed_books': borrowed,
-      });
-      await FirebaseFirestore.instance.collection('dashboard').doc('stats').update({
-        'buku_dipinjam': FieldValue.increment(-1),
-      });
-      return null;
-    }
-
     _membersList[memberIndex]['borrowed_books'] = borrowed;
     _membersController.add(List.from(_membersList));
-
-    int total = int.tryParse(_currentStats['buku_dipinjam'].toString()) ?? 0;
-    _currentStats['buku_dipinjam'] = (total > 0 ? total - 1 : 0).toString();
-    _statsController.add(_currentStats);
-
+    _updateStats();
     return null;
+  }
+
+  static int getOverdueCount() {
+    int overdue = 0;
+    final now = DateTime.now();
+    for (var member in _membersList) {
+      final list = member['borrowed_books'] as List? ?? [];
+      for (var b in list) {
+        final at = DateTime.tryParse(b['borrowed_at']?.toString() ?? '');
+        if (at != null && now.difference(at).inSeconds >= 120) {
+          overdue++;
+        }
+      }
+    }
+    return overdue;
+  }
+
+  static Map<String, dynamic> checkDueStatus(String? borrowedAtStr) {
+    if (borrowedAtStr == null) return {'isOverdue': false, 'text': '-'};
+    final borrowedAt = DateTime.tryParse(borrowedAtStr);
+    if (borrowedAt == null) return {'isOverdue': false, 'text': '-'};
+
+    final diffSeconds = DateTime.now().difference(borrowedAt).inSeconds;
+    const limitSeconds = 120; 
+
+    if (diffSeconds >= limitSeconds) {
+      final lateMin = (diffSeconds - limitSeconds) ~/ 60;
+      return {
+        'isOverdue': true,
+        'text': lateMin > 0 ? 'Terlambat ($lateMin mnt)' : 'Terlambat (>2 mnt)',
+      };
+    } else {
+      final sisa = limitSeconds - diffSeconds;
+      return {
+        'isOverdue': false,
+        'text': 'Sisa ${sisa}s',
+      };
+    }
+  }
+
+  static List<Map<String, dynamic>> getBorrowersOfBook(String bookKode) {
+    final List<Map<String, dynamic>> list = [];
+    for (var m in _membersList) {
+      final bList = m['borrowed_books'] as List? ?? [];
+      for (var b in bList) {
+        if (b['kode'] == bookKode) {
+          final due = checkDueStatus(b['borrowed_at']);
+          list.add({
+            'nama': m['nama'],
+            'npm': m['npm'],
+            'prodi': m['prodi'],
+            'foto': m['foto'],
+            'status_tenggat': due['text'],
+            'isOverdue': due['isOverdue'],
+          });
+        }
+      }
+    }
+    return list;
+  }
+}
+class AppNotification {
+  static final ValueNotifier<bool> isVisible = ValueNotifier<bool>(false);
+
+  static void show(
+    BuildContext context,
+    String message, {
+    Color backgroundColor = const Color(0xFF145E53),
+    Duration duration = const Duration(seconds: 3),
+  }) {
+    isVisible.value = true;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    final controller = ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+        duration: duration,
+      ),
+    );
+
+    controller.closed.then((_) {
+      isVisible.value = false;
+    });
   }
 }

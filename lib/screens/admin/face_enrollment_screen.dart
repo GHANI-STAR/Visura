@@ -25,7 +25,6 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
     try {
       _cameras = await availableCameras();
       if (_cameras != null && _cameras!.isNotEmpty) {
-        // Prioritaskan kamera depan (front camera)
         final frontCam = _cameras!.firstWhere(
           (c) => c.lensDirection == CameraLensDirection.front,
           orElse: () => _cameras!.first,
@@ -54,7 +53,6 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
       final XFile photo = await _controller!.takePicture();
       final bytes = await photo.readAsBytes();
 
-      // Ekstraksi vektor fitur visual asli
       final embedding = await FaceRecognitionService.extractEmbedding(bytes);
 
       if (!mounted) return;
@@ -86,7 +84,6 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 1. Preview Kamera Penuh
           if (_isInit && _controller != null)
             SizedBox.expand(
               child: FittedBox(
@@ -110,7 +107,6 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
               ),
             ),
 
-          // 2. Overlay Panduan Oval Wajah
           SafeArea(
             child: Column(
               children: [
@@ -133,7 +129,6 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
                 ),
                 const Spacer(),
 
-                // Bingkai Oval Wajah
                 Container(
                   width: 250,
                   height: 330,
@@ -156,7 +151,6 @@ class _FaceEnrollmentScreenState extends State<FaceEnrollmentScreen> {
                 ),
                 const Spacer(),
 
-                // Tombol Jepret Wajah
                 Padding(
                   padding: const EdgeInsets.only(bottom: 36),
                   child: GestureDetector(

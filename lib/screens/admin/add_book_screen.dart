@@ -49,7 +49,6 @@ class _AddBookScreenState extends State<AddBookScreen> {
                 title: const Text('Buka Kamera Langsung'),
                 onTap: () async {
                   Navigator.pop(context);
-                  // Buka layar kamera langsung
                   final photoPath = await Navigator.push<String>(
                     context,
                     MaterialPageRoute(builder: (context) => const CameraCaptureScreen()),

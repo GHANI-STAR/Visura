@@ -26,7 +26,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
     try {
       _cameras = await availableCameras();
       if (_cameras != null && _cameras!.isNotEmpty) {
-        // Prioritaskan kamera belakang jika ada, atau kamera pertama
         final camera = _cameras!.firstWhere(
           (c) => c.lensDirection == CameraLensDirection.back,
           orElse: () => _cameras!.first,
@@ -90,7 +89,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 1. Tampilan Kamera Aktif
           if (_isInit && _controller != null && _errorMessage == null)
             Center(
               child: AspectRatio(
@@ -98,7 +96,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
                 child: CameraPreview(_controller!),
               ),
             )
-          // 2. Tampilan Error / Fallback Jika Kamera Gagal Di Browser
           else if (_errorMessage != null)
             Center(
               child: Padding(
@@ -128,7 +125,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
                 ),
               ),
             )
-          // 3. Loading
           else
             const Center(
               child: Column(
@@ -141,7 +137,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
               ),
             ),
 
-          // Tombol Kembali & Jepret
           SafeArea(
             child: Column(
               children: [
