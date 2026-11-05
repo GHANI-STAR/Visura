@@ -96,13 +96,9 @@ class _AddBookScreenState extends State<AddBookScreen> {
     await DatabaseService.addBook(newBook);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Buku "${_judulController.text}" berhasil disimpan!'),
-        backgroundColor: const Color(0xFF145E53),
-      ),
-    );
-    Navigator.pop(context);
+    
+    // Hapus ScaffoldMessenger, oper langsung pesannya di sini:
+    Navigator.pop(context, 'Buku "${_judulController.text.trim()}" berhasil disimpan!');
   }
 
   @override

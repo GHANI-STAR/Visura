@@ -105,6 +105,11 @@ class _MemberListScreenState extends State<MemberListScreen> {
           height: 48,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(26),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0F364E), Color(0xFF145E53)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x33000000),
@@ -115,7 +120,8 @@ class _MemberListScreenState extends State<MemberListScreen> {
           ),
           child: ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0E3D48),
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -131,11 +137,14 @@ class _MemberListScreenState extends State<MemberListScreen> {
                 fontSize: 13.5,
               ),
             ),
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              final msg = await Navigator.push<String>(
                 context,
                 MaterialPageRoute(builder: (context) => const AddMemberScreen()),
               );
+              if (msg != null && context.mounted) {
+                AppNotification.show(context, msg);
+              }
             },
           ),
         ),
@@ -275,13 +284,20 @@ class _MemberListScreenState extends State<MemberListScreen> {
                                     color: Colors.transparent,
                                     child: InkWell(
                                       borderRadius: BorderRadius.circular(18),
-                                      onTap: () {
-                                        Navigator.push(
+                                      onTap: () async {
+                                        final msg = await Navigator.push<String>(
                                           context,
                                           MaterialPageRoute(
                                             builder: (_) => EditMemberScreen(member: member),
                                           ),
                                         );
+                                        if (msg != null && context.mounted) {
+                                          AppNotification.show(
+                                            context,
+                                            msg,
+                                            backgroundColor: const Color(0xFFC02227),
+                                          );
+                                        }
                                       },
                                       child: Padding(
                                         padding: const EdgeInsets.all(14),

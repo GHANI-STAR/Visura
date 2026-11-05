@@ -12,13 +12,14 @@ class AddMemberScreen extends StatefulWidget {
 }
 
 class _AddMemberScreenState extends State<AddMemberScreen> {
-  final _namaController = TextEditingController();
-  final _npmController = TextEditingController();
-  final _prodiController = TextEditingController();
-  final _tglController = TextEditingController();
+  final TextEditingController _namaController = TextEditingController();
+  final TextEditingController _npmController = TextEditingController();
+  final TextEditingController _prodiController = TextEditingController();
+  final TextEditingController _tglController = TextEditingController();
 
   String? _facePhotoPath;
   List<double>? _faceEmbedding;
+  dynamic _faceEmbeddingsMulti;
 
   @override
   void dispose() {
@@ -50,7 +51,7 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
     );
 
     if (picked != null) {
-      final months = [
+      const months = [
         'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
         'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
       ];
@@ -61,20 +62,33 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
   }
 
   Future<void> _openFaceScanner() async {
-    final result = await Navigator.push<Map<String, dynamic>>(
+    final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const FaceEnrollmentScreen()),
+      MaterialPageRoute(
+        builder: (context) => FaceEnrollmentScreen(
+          memberName: _namaController.text.trim().isNotEmpty
+              ? _namaController.text.trim()
+              : 'Anggota Baru',
+        ),
+      ),
     );
 
     if (result != null && mounted) {
       setState(() {
-        _facePhotoPath = result['photoPath'];
-        _faceEmbedding = result['embedding'];
+        _facePhotoPath = result['photoPath'] ?? result['foto'] ?? result['mainPhotoPath'];
+
+        if (result['embedding'] != null) {
+          _faceEmbedding = List<double>.from(result['embedding']);
+        }
+
+        if (result['embeddings'] != null) {
+          _faceEmbeddingsMulti = result['embeddings'];
+        }
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Wajah berhasil dipindai dan foto profil berhasil disimpan!'),
+          content: Text('Wajah berhasil dipindai dan data biometrik disimpan!'),
           backgroundColor: Color(0xFF145E53),
         ),
       );
@@ -98,22 +112,19 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
       'prodi': _prodiController.text.trim().isEmpty ? 'Informatika' : _prodiController.text.trim(),
       'tanggal_lahir': _tglController.text.trim().isEmpty ? '-' : _tglController.text.trim(),
       'lunas': true,
-      'biometrik_terdaftar': _faceEmbedding != null,
+      'biometrik_terdaftar': _faceEmbedding != null || _faceEmbeddingsMulti != null,
       'foto': _facePhotoPath ?? '',
-      'face_embedding': _faceEmbedding, 
+      'face_embedding': _faceEmbedding, // Format lama
+      'embedding': _faceEmbedding,      // Format baru tunggal
+      'embeddings': _faceEmbeddingsMulti, // Format multi-angle
       'kekurangan_iuran': '0',
+      'borrowed_books': [],
     };
 
     await DatabaseService.addMember(newMemberData);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Anggota ${_namaController.text} berhasil didaftarkan!'),
-        backgroundColor: const Color(0xFF145E53),
-      ),
-    );
-    Navigator.pop(context);
+    Navigator.pop(context, 'Anggota "${_namaController.text.trim()}" berhasil ditambahkan!');
   }
 
   @override
@@ -143,8 +154,13 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                     ),
                     const Text(
                       'Tambah Anggota',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
+                    const SizedBox(width: 40),
                   ],
                 ),
               ),
@@ -165,77 +181,85 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                       children: [
                         const Text(
                           'Lengkapi Data',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.black87),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.black87,
+                          ),
                         ),
                         const SizedBox(height: 18),
-
                         _buildFieldLabel('Nama'),
                         _buildTextField(_namaController, 'Masukan Nama'),
                         const SizedBox(height: 14),
-
                         _buildFieldLabel('NPM'),
-                        _buildTextField(_npmController, 'Masukan NPM', keyboardType: TextInputType.number),
+                        _buildTextField(
+                          _npmController,
+                          'Masukan NPM',
+                          keyboardType: TextInputType.number,
+                        ),
                         const SizedBox(height: 14),
-
                         _buildFieldLabel('Program Studi'),
                         _buildTextField(_prodiController, 'Masukan Program Studi'),
                         const SizedBox(height: 14),
-
-                        Row(
-                          children: [
-                            const Text(
-                              'Tanggal Lahir',
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Container(
-                                height: 44,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: const Color(0xFFCFD4DC)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        _tglController.text.isEmpty ? 'Pilih Tanggal' : _tglController.text,
-                                        style: TextStyle(
-                                          color: _tglController.text.isEmpty ? Colors.grey : Colors.black87,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.calendar_month_rounded, color: Color(0xFF145E53), size: 22),
-                                      onPressed: _pickDate,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                    ),
-                                  ],
+                        _buildFieldLabel('Tanggal Lahir'),
+                        Container(
+                          height: 44,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFCFD4DC)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _tglController.text.isEmpty
+                                      ? 'Pilih Tanggal'
+                                      : _tglController.text,
+                                  style: TextStyle(
+                                    color: _tglController.text.isEmpty
+                                        ? Colors.grey
+                                        : Colors.black87,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.calendar_month_rounded,
+                                  color: Color(0xFF145E53),
+                                  size: 22,
+                                ),
+                                onPressed: _pickDate,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 22),
-
                         const Text(
                           'Rekam Wajah (Biometrik)',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.black87),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
                         ),
                         const SizedBox(height: 10),
-
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(18),
                             boxShadow: const [
-                              BoxShadow(color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 3)),
+                              BoxShadow(
+                                color: Color(0x08000000),
+                                blurRadius: 8,
+                                offset: Offset(0, 3),
+                              ),
                             ],
                           ),
                           child: Row(
@@ -257,7 +281,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                                       )
                                     : const Icon(Icons.person, size: 54, color: Color(0xFF1B4965)),
                               ),
-
                               InkWell(
                                 borderRadius: BorderRadius.circular(14),
                                 onTap: _openFaceScanner,
@@ -266,9 +289,13 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                                   child: Column(
                                     children: [
                                       Icon(
-                                        _facePhotoPath != null ? Icons.check_circle_rounded : Icons.photo_camera_rounded,
+                                        _facePhotoPath != null
+                                            ? Icons.check_circle_rounded
+                                            : Icons.photo_camera_rounded,
                                         size: 46,
-                                        color: _facePhotoPath != null ? const Color(0xFF145E53) : const Color(0xFF175850),
+                                        color: _facePhotoPath != null
+                                            ? const Color(0xFF145E53)
+                                            : const Color(0xFFE17585),
                                       ),
                                       const SizedBox(height: 6),
                                       Text(
@@ -276,7 +303,9 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
-                                          color: _facePhotoPath != null ? const Color(0xFF145E53) : Colors.black87,
+                                          color: _facePhotoPath != null
+                                              ? const Color(0xFF145E53)
+                                              : Colors.black87,
                                         ),
                                       ),
                                     ],
@@ -287,7 +316,6 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                           ),
                         ),
                         const SizedBox(height: 24),
-
                         Container(
                           width: double.infinity,
                           height: 48,
@@ -297,19 +325,29 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
                               colors: [Color(0xFF0F364E), Color(0xFF145E53)],
                             ),
                             boxShadow: const [
-                              BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 6,
+                                offset: Offset(0, 3),
+                              ),
                             ],
                           ),
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
                             ),
                             onPressed: _saveMember,
                             child: const Text(
                               'Daftarkan Anggota',
-                              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
@@ -328,11 +366,22 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
   Widget _buildFieldLabel(String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+      ),
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String hint, {TextInputType? keyboardType}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String hint, {
+    TextInputType? keyboardType,
+  }) {
     return Container(
       height: 44,
       decoration: BoxDecoration(
@@ -348,9 +397,9 @@ class _AddMemberScreenState extends State<AddMemberScreen> {
         decoration: InputDecoration(
           isDense: true,
           hintText: hint,
-          hintStyle: const TextStyle(color: Color(0xFFB0B6C1), fontSize: 13),
+          hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 13),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
     );

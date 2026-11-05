@@ -67,11 +67,14 @@ class _BookListScreenState extends State<BookListScreen> {
                 fontSize: 13,
               ),
             ),
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              final msg = await Navigator.push<String>(
                 context,
                 MaterialPageRoute(builder: (context) => const AddBookScreen()),
               );
+              if (msg != null && context.mounted) {
+                AppNotification.show(context, msg);
+              }
             },
           ),
         ),
@@ -235,13 +238,20 @@ class _BookListScreenState extends State<BookListScreen> {
 
                                       return InkWell(
                                         borderRadius: BorderRadius.circular(12),
-                                        onTap: () {
-                                          Navigator.push(
+                                        onTap: () async {
+                                          final msg = await Navigator.push<String>(
                                             context,
                                             MaterialPageRoute(
                                               builder: (context) => BookDetailScreen(book: book),
                                             ),
                                           );
+                                          if (msg != null && context.mounted) {
+                                            AppNotification.show(
+                                              context,
+                                              msg,
+                                              backgroundColor: const Color(0xFFC02227),
+                                            );
+                                          }
                                         },
                                         child: Container(
                                           margin: const EdgeInsets.only(bottom: 10),

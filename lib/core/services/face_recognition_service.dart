@@ -1,9 +1,12 @@
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
+
+typedef JsonMap = Map<String, dynamic>;
 
 class FaceRecognitionService {
-  static const double similarityThreshold = 0.80;
+  static const double similarityThreshold = 0.60;
 
   static Future<List<double>> extractEmbedding(Uint8List imageBytes) async {
     try {
@@ -14,8 +17,9 @@ class FaceRecognitionService {
       );
       final frame = await codec.getNextFrame();
       final image = frame.image;
-
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final byteData = await image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      );
       if (byteData == null) return [];
 
       final pixels = byteData.buffer.asUint8List();
@@ -38,12 +42,17 @@ class FaceRecognitionService {
 
       return rawVector.map((v) => v / norm).toList();
     } catch (e) {
+      debugPrint('Error extractEmbedding: $e');
       return [];
     }
   }
 
-  static double calculateCosineSimilarity(List<double> vectorA, List<double> vectorB) {
+  static double calculateCosineSimilarity(
+    List<double> vectorA,
+    List<double> vectorB,
+  ) {
     if (vectorA.length != vectorB.length || vectorA.isEmpty) return 0.0;
+
     double dotProduct = 0.0;
     for (int i = 0; i < vectorA.length; i++) {
       dotProduct += vectorA[i] * vectorB[i];
@@ -51,29 +60,60 @@ class FaceRecognitionService {
     return dotProduct;
   }
 
-  static Map<String, dynamic>? matchFace(
+  static JsonMap? matchFace(
     List<double> currentEmbedding,
-    List<Map<String, dynamic>> registeredMembers,
-  ) {
-    if (currentEmbedding.isEmpty) return null;
+    List<JsonMap> registeredMembers, {
+    double threshold = 0.60,
+  }) {
+    if (currentEmbedding.isEmpty || registeredMembers.isEmpty) return null;
 
-    Map<String, dynamic>? bestMatch;
-    double highestSimilarity = -1.0;
+    JsonMap? bestMatch;
+    double highestScore = -1.0;
 
-    for (var member in registeredMembers) {
-      if (member['face_embedding'] == null) continue;
+    for (final member in registeredMembers) {
+      double maxMemberScore = -1.0;
 
-      final raw = member['face_embedding'] as List;
-      final savedEmbedding = raw.map((e) => (e as num).toDouble()).toList();
+      // 1. Cek kunci 'embeddings' (Multi-angle List)
+      final dynamic rawMulti = member['embeddings'];
+      if (rawMulti is List && rawMulti.isNotEmpty) {
+        for (final rawEmb in rawMulti) {
+          if (rawEmb is List && rawEmb.isNotEmpty) {
+            final vector = rawEmb.map((e) => (e as num).toDouble()).toList();
+            final score = calculateCosineSimilarity(currentEmbedding, vector);
+            if (score > maxMemberScore) maxMemberScore = score;
+          }
+        }
+      }
 
-      final similarity = calculateCosineSimilarity(currentEmbedding, savedEmbedding);
+      // 2. Cek kunci 'face_embedding' (Format default yang disimpan AddMember)
+      final dynamic rawFaceEmb = member['face_embedding'];
+      if (rawFaceEmb is List && rawFaceEmb.isNotEmpty) {
+        final vector = rawFaceEmb.map((e) => (e as num).toDouble()).toList();
+        final score = calculateCosineSimilarity(currentEmbedding, vector);
+        if (score > maxMemberScore) maxMemberScore = score;
+      }
 
-      if (similarity >= similarityThreshold && similarity > highestSimilarity) {
-        highestSimilarity = similarity;
+      // 3. Cek kunci 'embedding' (Format tunggal alternatif)
+      final dynamic rawSingle = member['embedding'];
+      if (rawSingle is List && rawSingle.isNotEmpty) {
+        final vector = rawSingle.map((e) => (e as num).toDouble()).toList();
+        final score = calculateCosineSimilarity(currentEmbedding, vector);
+        if (score > maxMemberScore) maxMemberScore = score;
+      }
+
+      // Evaluasi skor tertinggi untuk anggota ini
+      if (maxMemberScore > highestScore) {
+        highestScore = maxMemberScore;
         bestMatch = member;
       }
     }
 
-    return bestMatch;
+    debugPrint('📊 Skor tertinggi yang didapat: $highestScore (Target minimal: $threshold)');
+
+    if (highestScore >= threshold) {
+      return bestMatch;
+    }
+
+    return null;
   }
 }

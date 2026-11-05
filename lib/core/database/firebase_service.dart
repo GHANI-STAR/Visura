@@ -317,8 +317,10 @@ class DatabaseService {
     return list;
   }
 }
+
 class AppNotification {
   static final ValueNotifier<bool> isVisible = ValueNotifier<bool>(false);
+  static ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _activeController;
 
   static void show(
     BuildContext context,
@@ -326,18 +328,26 @@ class AppNotification {
     Color backgroundColor = const Color(0xFF145E53),
     Duration duration = const Duration(seconds: 3),
   }) {
+    _activeController = null;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    
     isVisible.value = true;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    final controller = ScaffoldMessenger.of(context).showSnackBar(
+
+    final controller = messenger.showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: backgroundColor,
         duration: duration,
       ),
     );
+    _activeController = controller;
 
     controller.closed.then((_) {
-      isVisible.value = false;
+      if (_activeController == controller) {
+        isVisible.value = false;
+        _activeController = null;
+      }
     });
   }
 }
